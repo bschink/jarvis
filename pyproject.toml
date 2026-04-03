@@ -1,0 +1,12 @@
+[project]
+name = "jarvis"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "pynput>=1.8.1",
+    "requests>=2.33.1",
+    "sounddevice>=0.5.5",
+    "soundfile>=0.13.1",
+]
