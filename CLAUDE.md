@@ -84,7 +84,7 @@ These are hard constraints, not preferences. Never suggest patterns that violate
 
 | Component | Status | Notes |
 |---|---|---|
-| STT (whisper.cpp + hotkey) | 🔲 Planned | `docs/stt-setup.md` written, not yet implemented |
+| STT (whisper.cpp + hotkey) | ✅ Done | whisper-server on `127.0.0.1:2022`, push-to-talk dictation via launchd |
 | TTS — Kokoro-ONNX | 🔲 Planned | Real-time, conversational replies |
 | TTS — Qwen3-TTS (MLX) | 🔲 Planned | Quality, longer content, voice cloning |
 | Local LLM (Ollama + Qwen3 14B) | 🔲 Planned | `docs/llm-setup.md` |

@@ -7,7 +7,7 @@
   <string>com.whisper.dictate</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/YOURUSERNAME/.venv/whisper-dictate/bin/python3</string>
+    <string>/Users/YOURUSERNAME/.venv/whisper-dictate/bin/jarvis-dictate</string>
     <string>/Users/YOURUSERNAME/scripts/whisper-dictate.py</string>
   </array>
   <key>RunAtLoad</key>

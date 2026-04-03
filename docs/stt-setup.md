@@ -120,6 +120,21 @@ uv pip install --python ~/.venv/whisper-dictate \
   pynput sounddevice soundfile requests numpy
 ```
 
+Create a named binary so macOS shows **jarvis-dictate** in System Settings and the menu bar instead of python3:
+
+```bash
+# Symlink the dylib so the copied binary can find it
+ln -s ~/.local/share/uv/python/cpython-3.14-macos-aarch64-none/lib/libpython3.14.dylib \
+  ~/.venv/whisper-dictate/lib/libpython3.14.dylib
+
+# Copy the real binary and adhoc-sign it
+cp ~/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14 \
+  ~/.venv/whisper-dictate/bin/jarvis-dictate
+codesign --sign - ~/.venv/whisper-dictate/bin/jarvis-dictate
+```
+
+> **Why not a symlink?** macOS resolves symlinks before setting the process name, so a symlink to python3 always shows as python3. A real binary copy with an adhoc signature is required. The dylib symlink makes the rpath (`@executable_path/../lib`) resolve correctly without needing to relink the binary.
+
 Copy the script from the repo and make it executable:
 
 ```bash
@@ -135,10 +150,10 @@ chmod +x ~/scripts/whisper-dictate.py
 The script needs two permissions. Both are requested automatically on first run, but you can add them manually:
 
 **Microphone access:**  
-System Settings → Privacy & Security → Microphone → enable `~/.venv/whisper-dictate/bin/python3`
+System Settings → Privacy & Security → Microphone → enable `~/.venv/whisper-dictate/bin/jarvis-dictate`
 
 **Accessibility access** (required for typing into other apps):  
-System Settings → Privacy & Security → Accessibility → enable `~/.venv/whisper-dictate/bin/python3`
+System Settings → Privacy & Security → Accessibility → enable `~/.venv/whisper-dictate/bin/jarvis-dictate`
 
 > You need to add the venv Python binary specifically, not Terminal, because launchd invokes it directly.
 
