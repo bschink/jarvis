@@ -20,6 +20,7 @@ Personal AI assistant system for Bene, running entirely local, open source, and 
 - **Shell:** use `zsh` conventions; launchd for persistent background services (not cron, not systemd)
 - **Python:** use `uv run python` (not pip, not conda)
 - **Package management:** Homebrew for system tools, uv for Python dependencies
+- **Process naming** — every launchd service must run under a descriptive binary name (e.g. `jarvis-dictate`, `jarvis-kokoro`), never plain `python3`. macOS resolves symlinks before setting the process name, so a real binary copy is required: copy the uv Python binary, symlink `libpython3.14.dylib` into the venv's `lib/` dir, and adhoc-sign the copy. See `docs/stt-setup.md` Part 5 for the canonical example.
 - **Key ports in use:**
   - `127.0.0.1:2022` — whisper-server (STT)
   - `127.0.0.1:8880` — Kokoro-ONNX (TTS)
