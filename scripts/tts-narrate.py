@@ -2,11 +2,13 @@
 """
 System-wide "read this to me" hotkey daemon for JARVIS.
 Press Ctrl+Shift+F5 to speak whatever text is selected in any app.
+Press Ctrl+Shift+F5 again while speaking to stop playback immediately.
 
 Flow: hotkey → Cmd+C → read clipboard → restore clipboard → speak via tts-router.py
 """
 
 import os
+import signal
 import subprocess
 import threading
 import time
@@ -25,6 +27,7 @@ COPY_DELAY = 0.15   # seconds to wait after Cmd+C before reading clipboard
 current_keys = set()
 busy = False
 triggered = False   # hotkey was pressed, waiting for release to fire
+tts_proc = None     # current TTS subprocess (Popen handle)
 
 # ── Clipboard helpers ─────────────────────────────────────────────────────────
 
@@ -46,20 +49,36 @@ def copy_selection() -> str:
 # ── TTS ───────────────────────────────────────────────────────────────────────
 
 def speak(text: str) -> None:
-    global busy
+    global busy, tts_proc
     try:
-        subprocess.run([TTS_PYTHON, TTS_SCRIPT, "--long", text])
+        tts_proc = subprocess.Popen(
+            [TTS_PYTHON, TTS_SCRIPT, "--long", text],
+            start_new_session=True,
+        )
+        tts_proc.wait()
     except Exception as e:
         print(f"❌ TTS error: {e}")
     finally:
+        tts_proc = None
         busy = False
+
+
+def stop_speaking() -> None:
+    global tts_proc
+    proc = tts_proc
+    if proc is not None:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        print("⏹  Stopped.")
 
 # ── Hotkey handler ────────────────────────────────────────────────────────────
 
 def on_press(key):
     global triggered
     current_keys.add(key)
-    if current_keys == HOTKEY and not busy:
+    if current_keys == HOTKEY:
         triggered = True
 
 def on_release(key):
@@ -73,7 +92,7 @@ def on_release(key):
     triggered = False
 
     if busy:
-        print("⏳ Already speaking, ignoring.")
+        stop_speaking()
         return
 
     saved = clipboard_read()
@@ -93,6 +112,7 @@ def on_release(key):
 
 print("🟢 JARVIS narrate ready.")
 print("   Select text anywhere, then press Ctrl+Shift+F5 to hear it.")
+print("   Press Ctrl+Shift+F5 again while speaking to stop.")
 print("   Edit HOTKEY in the script to change the key.\n")
 
 with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:

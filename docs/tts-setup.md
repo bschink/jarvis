@@ -243,7 +243,7 @@ The threshold and voice defaults live at the top of `tts-router.py` as `THRESHOL
 
 ## Part 7: Narrate Daemon (System-wide "Read This to Me")
 
-`tts-narrate.py` is a persistent hotkey daemon — the TTS mirror of `whisper-dictate.py`. Select any text in any app, press `Ctrl+Shift+F5`, and JARVIS reads it aloud.
+`tts-narrate.py` is a persistent hotkey daemon — the TTS mirror of `whisper-dictate.py`. Select any text in any app, press `Ctrl+Shift+F5`, and JARVIS reads it aloud. Press `Ctrl+Shift+F5` again while audio is playing to stop immediately.
 
 ### Install dependencies
 
