@@ -29,18 +29,30 @@ HOTKEY = {keyboard.Key.ctrl, keyboard.Key.f5}
 recording = False
 audio_frames = []
 current_keys = set()
+stream = None
 
 # ── Audio ─────────────────────────────────────────────────────────────────────
 
 def start_recording():
-    global recording, audio_frames
+    global recording, audio_frames, stream
     recording = True
     audio_frames = []
+    stream = sd.InputStream(
+        samplerate=SAMPLE_RATE,
+        channels=1,
+        dtype='float32',
+        callback=audio_callback,
+    )
+    stream.start()
     print("🎙  Recording...")
 
 def stop_and_transcribe():
-    global recording
+    global recording, stream
     recording = False
+    if stream is not None:
+        stream.stop()
+        stream.close()
+        stream = None
     print("⏳ Transcribing...")
 
     if not audio_frames:
@@ -90,7 +102,7 @@ def type_text(text):
 
 def on_press(key):
     current_keys.add(key)
-    if HOTKEY.issubset(current_keys):
+    if current_keys == HOTKEY:
         if not recording:
             start_recording()
         else:
@@ -100,14 +112,6 @@ def on_release(key):
     current_keys.discard(key)
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-
-stream = sd.InputStream(
-    samplerate=SAMPLE_RATE,
-    channels=1,
-    dtype='float32',
-    callback=audio_callback
-)
-stream.start()
 
 print("🟢 Whisper dictation ready.")
 print("   Press Ctrl+F5 to start recording, press again to transcribe.")

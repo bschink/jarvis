@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.tts.narrate</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/YOURUSERNAME/.venv/tts-narrate/bin/jarvis-narrate</string>
+    <string>/Users/YOURUSERNAME/scripts/tts-narrate.py</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/tts-narrate.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/tts-narrate.err</string>
+</dict>
+</plist>

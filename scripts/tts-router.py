@@ -4,14 +4,17 @@ Text-to-speech router for JARVIS.
 Short text (< THRESHOLD chars) → Kokoro-ONNX (real-time, HTTP on port 8880).
 Long text (>= THRESHOLD chars) → Qwen3-TTS via mlx-audio (quality, in-process).
 Usage:
-  tts-speak.py "text to speak"           # auto-route by length
-  tts-speak.py --fast "text"             # force Kokoro
-  tts-speak.py --long "text"             # force Qwen3-TTS
+  tts-router.py "text to speak"           # auto-route by length
+  tts-router.py --fast "text"             # force Kokoro
+  tts-router.py --long "text"             # force Qwen3-TTS
 """
 
 import argparse
 import io
+import os
+import subprocess
 import sys
+import tempfile
 
 import requests
 import sounddevice as sd
@@ -22,7 +25,17 @@ import soundfile as sf
 THRESHOLD      = 200                                     # chars — below: Kokoro, at or above: Qwen3-TTS
 KOKORO_URL     = "http://127.0.0.1:8880/v1/audio/speech"
 KOKORO_VOICE   = "af_heart"                                # see Customisation in docs/tts-setup.md
-QWEN3_MODEL    = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit"
+QWEN3_LOCAL_PATH = os.path.expanduser(
+    "~/.cache/huggingface/hub/"
+    "models--mlx-community--Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit/snapshots/main"
+)
+QWEN3_MODE     = "voicedesign"                           # "customvoice" or "voicedesign"
+QWEN3_VOICE    = "vivian"                                # customvoice only: serena, vivian, ryan, aiden, eric, dylan, sohee
+QWEN3_INSTRUCT = "A young woman, warm and slightly husky, calm and intimate, natural conversational rhythm, expressive"  # voicedesign only
+QWEN3_GENDER   = "female"                                # "male" or "female"
+QWEN3_TEMP     = 0                                       # 0 = deterministic
+QWEN3_TOP_K    = 1
+QWEN3_CFG      = 1.0
 QWEN3_SR       = 24000                                   # Hz — Qwen3-TTS output sample rate
 
 # ── Kokoro (fast path) ────────────────────────────────────────────────────────
@@ -50,20 +63,33 @@ def speak_kokoro(text: str) -> None:
 # ── Qwen3-TTS (quality path) ──────────────────────────────────────────────────
 
 def speak_qwen3(text: str) -> None:
-    print(f"🔊 Qwen3-TTS ({len(text)} chars) — loading model...")
+    print(f"🔊 Qwen3-TTS ({len(text)} chars) — generating...")
     try:
-        # Lazy import: mlx-audio is only needed on the quality path
-        from mlx_audio.tts.utils import load_model  # type: ignore
-        model = load_model(QWEN3_MODEL)
-        print("⏳ Generating audio...")
-        audio = model.generate(text)
-        print("✅ Playing...")
-        sd.play(audio, QWEN3_SR)
-        sd.wait()
-        print("✅ Done")
-    except ImportError:
-        print("❌ mlx-audio not installed.")
-        print("   Run: uv pip install --python ~/.venv/mlx-audio mlx-audio")
+        with tempfile.TemporaryDirectory() as tmp:
+            cmd = [
+                sys.executable, "-m", "mlx_audio.tts.generate",
+                "--model", QWEN3_LOCAL_PATH,
+                "--text", text,
+                "--output_path", os.path.join(tmp, "out.wav"),
+                "--gender", QWEN3_GENDER,
+                "--temperature", str(QWEN3_TEMP),
+                "--top_k", str(QWEN3_TOP_K),
+                "--cfg_scale", str(QWEN3_CFG),
+            ]
+            if QWEN3_MODE == "voicedesign":
+                cmd += ["--instruct", QWEN3_INSTRUCT]
+            else:
+                cmd += ["--voice", QWEN3_VOICE]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            audio_path = os.path.join(tmp, "out.wav", "audio_000.wav")
+            if not os.path.exists(audio_path):
+                print(f"❌ Generation failed:\n{result.stderr}")
+                return
+            print("✅ Playing...")
+            data, sr = sf.read(audio_path)
+            sd.play(data, sr)
+            sd.wait()
+            print("✅ Done")
     except Exception as e:
         print(f"❌ Error: {e}")
 

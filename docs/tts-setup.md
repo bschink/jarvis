@@ -128,20 +128,65 @@ uv venv ~/.venv/mlx-audio
 uv pip install --python ~/.venv/mlx-audio mlx-audio
 ```
 
-Test the CLI (first run downloads the model — ~1.1 GB at 8-bit, one-time):
+Two model variants are available. Download whichever you prefer (or both):
+
+### Option A — CustomVoice (~1.1 GB, pick from preset voices)
+
+```bash
+DEST_CV="$HOME/.cache/huggingface/hub/models--mlx-community--Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit/snapshots/main"
+mkdir -p "$DEST_CV/speech_tokenizer"
+BASE="https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit/resolve/main"
+for f in config.json generation_config.json merges.txt model.safetensors model.safetensors.index.json preprocessor_config.json tokenizer_config.json vocab.json; do
+  curl -L --progress-bar "$BASE/$f" -o "$DEST_CV/$f"
+done
+for f in config.json configuration.json model.safetensors preprocessor_config.json; do
+  curl -L --progress-bar "$BASE/speech_tokenizer/$f" -o "$DEST_CV/speech_tokenizer/$f"
+done
+curl -L --progress-bar "https://huggingface.co/Qwen/Qwen2.5-0.5B/resolve/main/tokenizer.json" -o "$DEST_CV/tokenizer.json"
+```
+
+Test (pass `--voice` with a preset name):
 
 ```bash
 ~/.venv/mlx-audio/bin/python -m mlx_audio.tts.generate \
-  --model mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit \
+  --model "$DEST_CV" \
   --text "This is a longer passage to test the quality TTS engine." \
-  --output /tmp/test-qwen3.wav && afplay /tmp/test-qwen3.wav
+  --voice "vivian" \
+  --output /tmp/test-cv && afplay /tmp/test-cv/audio_000.wav
 ```
 
-Generation takes 10–40 seconds depending on text length. Subsequent runs are faster (model is cached in `~/.cache/huggingface/`).
+> **Available voices:** `serena`, `vivian`, `uncle_fu`, `ryan`, `aiden`, `ono_anna`, `sohee`, `eric`, `dylan`
 
-> **Model naming convention:** Models follow `mlx-community/Qwen3-TTS-12Hz-{size}-{variant}-{quant}`. The `12Hz` refers to the internal codec frame rate, not audio output sample rate (which remains 24 kHz). Available variants: `Base` (core voice), `CustomVoice` (style control), `VoiceDesign` (voice from text description).
+### Option B — VoiceDesign (~1.4 GB, describe the voice in natural language)
 
-> **Note on Qwen3-TTS Python API:** The `tts-speak.py` script uses `from mlx_audio.tts.utils import load_model`. If this import fails after install, verify with `~/.venv/mlx-audio/bin/python -c "from mlx_audio.tts import utils; help(utils)"` and update `tts-speak.py` accordingly.
+```bash
+DEST_VD="$HOME/.cache/huggingface/hub/models--mlx-community--Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit/snapshots/main"
+mkdir -p "$DEST_VD/speech_tokenizer"
+BASE="https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit/resolve/main"
+for f in config.json generation_config.json merges.txt model.safetensors model.safetensors.index.json preprocessor_config.json tokenizer_config.json vocab.json; do
+  curl -L --progress-bar "$BASE/$f" -o "$DEST_VD/$f"
+done
+for f in config.json configuration.json model.safetensors preprocessor_config.json; do
+  curl -L --progress-bar "$BASE/speech_tokenizer/$f" -o "$DEST_VD/speech_tokenizer/$f"
+done
+curl -L --progress-bar "https://huggingface.co/Qwen/Qwen2.5-0.5B/resolve/main/tokenizer.json" -o "$DEST_VD/tokenizer.json"
+```
+
+Test (pass `--instruct` with a free-form voice description):
+
+```bash
+~/.venv/mlx-audio/bin/python -m mlx_audio.tts.generate \
+  --model "$DEST_VD" \
+  --text "JARVIS online. All systems nominal." \
+  --instruct "A calm, deep British male voice with a slight authoritative tone" \
+  --output /tmp/test-vd && afplay /tmp/test-vd/audio_000.wav
+```
+
+> **Output path quirk:** mlx-audio treats `--output` as a directory prefix. The actual file is always `{output}/audio_000.wav`.
+
+Generation takes 10–40 seconds. Subsequent runs are faster (model weights stay in memory/cache).
+
+> **Model naming convention:** Models follow `mlx-community/Qwen3-TTS-12Hz-{size}-{variant}-{quant}`. The `12Hz` refers to the internal codec frame rate, not audio output sample rate (which remains 24 kHz).
 
 ---
 
@@ -159,31 +204,31 @@ Copy the scripts from the repo and make them executable:
 
 ```bash
 mkdir -p ~/scripts
-cp "$(git -C ~/Documents/VSCode/jarvis rev-parse --show-toplevel)/scripts/tts-speak.py" ~/scripts/tts-speak.py
+cp "$(git -C ~/Documents/VSCode/jarvis rev-parse --show-toplevel)/scripts/tts-router.py" ~/scripts/tts-router.py
 cp "$(git -C ~/Documents/VSCode/jarvis rev-parse --show-toplevel)/scripts/kokoro-server.py" ~/scripts/kokoro-server.py
-chmod +x ~/scripts/tts-speak.py ~/scripts/kokoro-server.py
+chmod +x ~/scripts/tts-router.py ~/scripts/kokoro-server.py
 ```
 
 Test it:
 
 ```bash
 # Auto-route: short text → Kokoro
-~/.venv/tts-speak/bin/python ~/scripts/tts-speak.py "Hello, how can I help?"
+~/.venv/tts-speak/bin/python ~/scripts/tts-router.py "Hello, how can I help?"
 
 # Auto-route: long text → Qwen3-TTS
-~/.venv/tts-speak/bin/python ~/scripts/tts-speak.py \
-  "This is a longer passage that exceeds the two hundred character threshold and will be routed to Qwen3-TTS for higher quality synthesis."
+~/.venv/tts-speak/bin/python ~/scripts/tts-router.py \
+  "This is a longer passage that exceeds the two hundred character threshold and will be routed to Qwen3-TTS for higher quality synthesis. And this is just some extra text to make sure we go over the threshold. Testing, one, two, three."
 
 # Force a specific engine
-~/.venv/tts-speak/bin/python ~/scripts/tts-speak.py --fast "Quick reply."
-~/.venv/tts-speak/bin/python ~/scripts/tts-speak.py --long "Short but high quality."
+~/.venv/tts-speak/bin/python ~/scripts/tts-router.py --fast "Quick reply."
+~/.venv/tts-speak/bin/python ~/scripts/tts-router.py --long "Short but high quality."
 ```
 
 ---
 
 ## Part 6: Routing Logic
 
-The router (`tts-speak.py`) picks an engine based on text length unless overridden:
+The router (`tts-router.py`) picks an engine based on text length unless overridden:
 
 | Condition | Engine | Latency | Use case |
 |---|---|---|---|
@@ -192,7 +237,77 @@ The router (`tts-speak.py`) picks an engine based on text length unless overridd
 | `--fast` flag | Kokoro-ONNX | < 1s | Force fast regardless of length |
 | `--long` flag | Qwen3-TTS | 10–40s | Force quality regardless of length |
 
-The threshold and voice defaults live at the top of `tts-speak.py` as `THRESHOLD` and `KOKORO_VOICE` — see Customisation below.
+The threshold and voice defaults live at the top of `tts-router.py` as `THRESHOLD` and `KOKORO_VOICE` — see Customisation below.
+
+---
+
+## Part 7: Narrate Daemon (System-wide "Read This to Me")
+
+`tts-narrate.py` is a persistent hotkey daemon — the TTS mirror of `whisper-dictate.py`. Select any text in any app, press `Ctrl+Shift+F5`, and JARVIS reads it aloud.
+
+### Install dependencies
+
+```bash
+uv venv ~/.venv/tts-narrate
+uv pip install --python ~/.venv/tts-narrate pynput
+```
+
+### Create the named binary
+
+macOS resolves symlinks before setting the process name. Copy and sign the binary so it appears as `jarvis-narrate` in Activity Monitor:
+
+```bash
+ln -s ~/.local/share/uv/python/cpython-3.14-macos-aarch64-none/lib/libpython3.14.dylib \
+  ~/.venv/tts-narrate/lib/libpython3.14.dylib
+cp ~/.local/share/uv/python/cpython-3.14-macos-aarch64-none/bin/python3.14 \
+  ~/.venv/tts-narrate/bin/jarvis-narrate
+codesign --sign - ~/.venv/tts-narrate/bin/jarvis-narrate
+```
+
+### Grant Accessibility permission
+
+`pynput` requires Accessibility access to listen for global hotkeys. `osascript` requires it to simulate `Cmd+C`.
+
+Open **System Settings → Privacy & Security → Accessibility** and add `jarvis-narrate` (or the Terminal app if running manually first).
+
+### Copy the script
+
+```bash
+cp "$(git -C ~/Documents/VSCode/jarvis rev-parse --show-toplevel)/scripts/tts-narrate.py" ~/scripts/tts-narrate.py
+chmod +x ~/scripts/tts-narrate.py
+```
+
+### Install the launchd service
+
+```bash
+sed "s/YOURUSERNAME/$(whoami)/g" \
+  $(git -C ~/Documents/VSCode/jarvis rev-parse --show-toplevel)/launchd/com.tts.narrate.plist \
+  > ~/Library/LaunchAgents/com.tts.narrate.plist
+launchctl load ~/Library/LaunchAgents/com.tts.narrate.plist
+```
+
+### Verify
+
+```bash
+# Service is running (exit code 0)
+launchctl list | grep tts.narrate
+
+# Process shows as jarvis-narrate
+ps aux | grep jarvis-narrate
+
+# End-to-end: select some text in any app, press Ctrl+Shift+F5
+# Audio should play
+
+# Check logs if silent
+tail /tmp/tts-narrate.err
+tail /tmp/tts-narrate.log
+```
+
+### Force-restart
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.tts.narrate
+```
 
 ---
 
@@ -213,13 +328,15 @@ curl http://127.0.0.1:8880/v1/audio/speech \
   --output /tmp/test-kokoro.wav && afplay /tmp/test-kokoro.wav
 
 # End-to-end Qwen3-TTS test
+DEST="$HOME/.cache/huggingface/hub/models--mlx-community--Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit/snapshots/main"
 ~/.venv/mlx-audio/bin/python -m mlx_audio.tts.generate \
-  --model mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit \
+  --model "$DEST" \
   --text "Qwen3-TTS is working correctly." \
-  --output /tmp/test-qwen3.wav && afplay /tmp/test-qwen3.wav
+  --voice "ryan" \
+  --output /tmp/test-qwen3 && afplay /tmp/test-qwen3/audio_000.wav
 
 # Router script (auto-route)
-~/.venv/tts-speak/bin/python ~/scripts/tts-speak.py "Both engines are ready."
+~/.venv/tts-speak/bin/python ~/scripts/tts-router.py "Both engines are ready."
 
 # Force-restart Kokoro server
 launchctl kickstart -k gui/$(id -u)/com.kokoro.server
@@ -237,7 +354,7 @@ Expected behaviour:
 
 ### Change the Kokoro voice
 
-Edit `KOKORO_VOICE` in `tts-speak.py`:
+Edit `KOKORO_VOICE` in `tts-router.py`:
 
 ```python
 KOKORO_VOICE = "bm_george"   # British male
@@ -247,7 +364,7 @@ KOKORO_VOICE = "am_michael"  # American male
 
 ### Change the routing threshold
 
-Edit `THRESHOLD` in `tts-speak.py`:
+Edit `THRESHOLD` in `tts-router.py`:
 
 ```python
 THRESHOLD = 150   # route to Qwen3-TTS sooner
@@ -258,20 +375,30 @@ THRESHOLD = 400   # keep more text on Kokoro
 
 Kokoro serves English voices only. For multilingual output, Qwen3-TTS supports multiple languages natively — use `--long` to force it regardless of text length.
 
-### Use a different Qwen3-TTS model size or variant
+### Switch between CustomVoice and VoiceDesign
 
-Change `QWEN3_MODEL` in `tts-speak.py`:
+Edit `QWEN3_LOCAL_PATH`, `QWEN3_MODE`, `QWEN3_VOICE`, and `QWEN3_INSTRUCT` at the top of `tts-router.py`:
+
+**CustomVoice** — pick from a preset list of voices:
 
 ```python
-# Smaller / faster (~400 MB)
-QWEN3_MODEL = "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-4bit"
-QWEN3_MODEL = "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16"
+QWEN3_LOCAL_PATH = os.path.expanduser(
+    "~/.cache/huggingface/hub/"
+    "models--mlx-community--Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit/snapshots/main"
+)
+QWEN3_MODE    = "customvoice"
+QWEN3_VOICE   = "vivian"   # serena, vivian, uncle_fu, ryan, aiden, ono_anna, sohee, eric, dylan
+```
 
-# Default — quality + style control (~1.1 GB)
-QWEN3_MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-8bit"
+**VoiceDesign** — describe the voice in natural language:
 
-# Voice design: describe a voice in natural language (~1.4 GB)
-QWEN3_MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit"
+```python
+QWEN3_LOCAL_PATH = os.path.expanduser(
+    "~/.cache/huggingface/hub/"
+    "models--mlx-community--Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit/snapshots/main"
+)
+QWEN3_MODE     = "voicedesign"
+QWEN3_INSTRUCT = "A calm, deep British male voice with a slight authoritative tone"
 ```
 
 ---
@@ -286,13 +413,22 @@ If the plist isn't loaded: re-run the `sed + launchctl load` commands from Part 
 The ONNX model files haven't been downloaded yet. Follow the download step in Part 1 to place `kokoro-v1.0.onnx` and `voices-v1.0.bin` in `~/.cache/kokoro/`.
 
 **Qwen3-TTS: "No module named mlx_audio"**  
-mlx-audio isn't installed in the right venv. The speak script must be run with `~/.venv/tts-speak/bin/python`, not the system Python.
+mlx-audio isn't installed in the right venv. The router script must be run with `~/.venv/tts-speak/bin/python`, not the system Python.
 
-**Qwen3-TTS is very slow on first run**  
-Normal — the model (~1.1 GB) is being downloaded to `~/.cache/huggingface/`. Subsequent runs use the cached model and are significantly faster.
+**Qwen3-TTS generate command hangs with no output**  
+The auto-download from HuggingFace hangs silently on some networks. Download model files manually with curl as shown in Part 4. Also ensure you pass the local filesystem path (not the repo name) via `--model "$DEST"`.
 
-**`mlx_audio.tts.utils.load_model` import fails**  
-The mlx-audio API is evolving. Check the installed version: `~/.venv/tts-speak/bin/python -c "import mlx_audio; print(mlx_audio.__version__)"` and compare to the mlx-audio changelog for the current import path.
+**Qwen3-TTS: "CustomVoice model requires 'voice'"**  
+The CustomVoice variant requires a `--voice` flag. Pass one of: `serena`, `vivian`, `uncle_fu`, `ryan`, `aiden`, `ono_anna`, `sohee`, `eric`, `dylan`.
+
+**Qwen3-TTS: "VoiceDesign model requires 'instruct'"**  
+The VoiceDesign variant uses `--instruct` (not `--voice`) with a free-form description e.g. `"A calm, deep British male voice"`.
+
+**Qwen3-TTS: "Tokenizer not loaded"**  
+The `tokenizer.json` file is missing from the mlx-community repo. Download it from Qwen2.5-0.5B as shown in the Part 4 download script — the tokenizer is identical.
+
+**Qwen3-TTS output file not found after generate**  
+mlx-audio treats `--output` as a directory prefix. The actual file is `{output}/audio_000.wav`, not `{output}` directly.
 
 **No audio output (sounddevice)**  
 macOS audio output does not require explicit permission like Microphone access. If silent: check System Settings → Sound → Output device is set correctly, and that the Python process isn't sandboxed.
