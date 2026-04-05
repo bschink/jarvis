@@ -12,13 +12,12 @@ Usage:
 import argparse
 import io
 import os
-import subprocess
-import sys
-import tempfile
 
 import requests
 import sounddevice as sd
 import soundfile as sf
+from mlx_audio.tts.audio_player import AudioPlayer
+from mlx_audio.tts.utils import load_model
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -37,6 +36,18 @@ QWEN3_TEMP     = 0                                       # 0 = deterministic
 QWEN3_TOP_K    = 1
 QWEN3_CFG      = 1.0
 QWEN3_SR       = 24000                                   # Hz — Qwen3-TTS output sample rate
+
+# ── Qwen3-TTS lazy model loader ───────────────────────────────────────────────
+
+_qwen3_model = None
+
+def _get_qwen3_model():
+    global _qwen3_model
+    if _qwen3_model is None:
+        print("⏳ Loading Qwen3-TTS model...")
+        _qwen3_model = load_model(QWEN3_LOCAL_PATH)
+        print("✅ Model loaded.")
+    return _qwen3_model
 
 # ── Kokoro (fast path) ────────────────────────────────────────────────────────
 
@@ -63,33 +74,23 @@ def speak_kokoro(text: str) -> None:
 # ── Qwen3-TTS (quality path) ──────────────────────────────────────────────────
 
 def speak_qwen3(text: str) -> None:
-    print(f"🔊 Qwen3-TTS ({len(text)} chars) — generating...")
+    print(f"🔊 Qwen3-TTS ({len(text)} chars) — streaming by paragraph...")
     try:
-        with tempfile.TemporaryDirectory() as tmp:
-            cmd = [
-                sys.executable, "-m", "mlx_audio.tts.generate",
-                "--model", QWEN3_LOCAL_PATH,
-                "--text", text,
-                "--output_path", os.path.join(tmp, "out.wav"),
-                "--gender", QWEN3_GENDER,
-                "--temperature", str(QWEN3_TEMP),
-                "--top_k", str(QWEN3_TOP_K),
-                "--cfg_scale", str(QWEN3_CFG),
-            ]
-            if QWEN3_MODE == "voicedesign":
-                cmd += ["--instruct", QWEN3_INSTRUCT]
-            else:
-                cmd += ["--voice", QWEN3_VOICE]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            audio_path = os.path.join(tmp, "out.wav", "audio_000.wav")
-            if not os.path.exists(audio_path):
-                print(f"❌ Generation failed:\n{result.stderr}")
-                return
-            print("✅ Playing...")
-            data, sr = sf.read(audio_path)
-            sd.play(data, sr)
-            sd.wait()
-            print("✅ Done")
+        model = _get_qwen3_model()
+        player = AudioPlayer(sample_rate=QWEN3_SR)
+        kwargs = {"instruct": QWEN3_INSTRUCT} if QWEN3_MODE == "voicedesign" else {"voice": QWEN3_VOICE}
+        for result in model.generate(
+            text,
+            temperature=QWEN3_TEMP,
+            top_k=QWEN3_TOP_K,
+            cfg_scale=QWEN3_CFG,
+            split_pattern="\n\n",
+            stream=True,
+            **kwargs,
+        ):
+            player.queue_audio(result.audio)
+        player.wait_for_drain()
+        print("✅ Done")
     except Exception as e:
         print(f"❌ Error: {e}")
 
@@ -116,7 +117,7 @@ def main() -> None:
             speak_qwen3(args.text)
     else:
         parser.print_help()
-        sys.exit(1)
+        raise SystemExit(1)
 
 if __name__ == "__main__":
     main()
