@@ -38,6 +38,9 @@ from jarvis_config import (
 from jarvis_config import (
     ROUTING_THRESHOLD as THRESHOLD,
 )
+from jarvis_log import log
+
+_SVC = "tts-router"
 
 # ── Qwen3-TTS lazy model loader ───────────────────────────────────────────────
 
@@ -52,9 +55,9 @@ def _get_qwen3_model():
                 f"Qwen3-TTS model not found: {QWEN3_LOCAL_PATH}\n"
                 "Download via mlx-audio — see docs/tts-setup.md Part 4."
             )
-        print("⏳ Loading Qwen3-TTS model...")
+        log(_SVC, "INFO", "loading Qwen3-TTS model (first use — may take ~10s)")
         _qwen3_model = load_model(QWEN3_LOCAL_PATH)
-        print("✅ Model loaded.")
+        log(_SVC, "INFO", "Qwen3-TTS model loaded")
     return _qwen3_model
 
 
@@ -62,7 +65,7 @@ def _get_qwen3_model():
 
 
 def speak_kokoro(text: str) -> None:
-    print(f"🔊 Kokoro ({len(text)} chars)...")
+    log(_SVC, "INFO", f"Kokoro: {len(text)} chars")
     try:
         resp = requests.post(
             KOKORO_URL,
@@ -73,20 +76,22 @@ def speak_kokoro(text: str) -> None:
         data, sr = sf.read(io.BytesIO(resp.content))
         sd.play(data, sr)
         sd.wait()
-        print("✅ Done")
+        log(_SVC, "INFO", "Kokoro: done")
     except requests.exceptions.ConnectionError:
-        print("❌ Kokoro server not reachable on port 8880. Is it running?")
-        print("   Check: launchctl list | grep kokoro")
-        print("   Logs:  tail /tmp/kokoro-server.err")
+        log(
+            _SVC,
+            "ERROR",
+            "Kokoro server not reachable on :8880 — check: launchctl list | grep kokoro",
+        )
     except Exception as e:
-        print(f"❌ Error: {e}")
+        log(_SVC, "ERROR", f"Kokoro error: {e}")
 
 
 # ── Qwen3-TTS (quality path) ──────────────────────────────────────────────────
 
 
 def speak_qwen3(text: str) -> None:
-    print(f"🔊 Qwen3-TTS ({len(text)} chars) — streaming by paragraph...")
+    log(_SVC, "INFO", f"Qwen3-TTS: {len(text)} chars (streaming by paragraph)")
     try:
         model = _get_qwen3_model()
         player = AudioPlayer(sample_rate=QWEN3_SR)
@@ -104,9 +109,9 @@ def speak_qwen3(text: str) -> None:
         ):
             player.queue_audio(result.audio)
         player.wait_for_drain()
-        print("✅ Done")
+        log(_SVC, "INFO", "Qwen3-TTS: done")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        log(_SVC, "ERROR", f"Qwen3-TTS error: {e}")
 
 
 # ── Router ────────────────────────────────────────────────────────────────────

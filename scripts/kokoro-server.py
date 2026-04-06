@@ -41,6 +41,9 @@ from jarvis_config import (
 from jarvis_config import (
     KOKORO_VOICES_PATH as VOICES_PATH,
 )
+from jarvis_log import log
+
+_SVC = "kokoro-server"
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
@@ -56,9 +59,9 @@ async def lifespan(app: FastAPI):
                 f"Model file not found: {path}\n"
                 "Download from hexgrad/Kokoro-82M on HuggingFace — see docs/tts-setup.md Part 1."
             )
-    print(f"🔊 Loading Kokoro model from {MODEL_PATH} ...")
+    log(_SVC, "INFO", f"loading model from {MODEL_PATH}")
     kokoro = Kokoro(MODEL_PATH, VOICES_PATH)
-    print(f"✅ Kokoro server ready on {HOST}:{PORT}")
+    log(_SVC, "INFO", f"ready on {HOST}:{PORT}")
     yield
 
 

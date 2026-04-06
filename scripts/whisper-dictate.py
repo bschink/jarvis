@@ -27,6 +27,9 @@ from jarvis_config import (
     WHISPER_STREAM_STEP_MS,
     WHISPER_STREAM_VAD_THRESHOLD,
 )
+from jarvis_log import log
+
+_SVC = "whisper-dictate"
 
 # Toggle combo: Ctrl+F5. macOS intercepts bare F5 at the system level;
 # a modifier combo bypasses that. Change to taste.
@@ -102,12 +105,12 @@ def _read_stdout(proc):
         if not text or text.startswith("["):
             continue
         if is_hallucination(text):
-            print(f"🚫 Filtered: '{text}'")
+            log(_SVC, "DEBUG", f"filtered: '{text}'")
             continue
 
         out = (" " if not first_chunk else "") + text
         first_chunk = False
-        print(f"✅ '{out}'")
+        log(_SVC, "INFO", f"transcribed: '{out}'")
         _type_queue.put(out)  # hand off; don't block the reader
 
 
@@ -137,7 +140,7 @@ def start_streaming():
     threading.Thread(target=_typer_worker, daemon=True).start()
     reader_thread = threading.Thread(target=_read_stdout, args=(whisper_proc,), daemon=True)
     reader_thread.start()
-    print("🎙  Streaming...")
+    log(_SVC, "INFO", "streaming started")
 
 
 def stop_streaming():
@@ -151,7 +154,7 @@ def stop_streaming():
             whisper_proc.wait()
         whisper_proc = None
     reader_thread = None
-    print("⏹  Stopped.")
+    log(_SVC, "INFO", "streaming stopped")
 
 
 # ── Typing ────────────────────────────────────────────────────────────────────
@@ -192,9 +195,7 @@ def on_release(key):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-print("🟢 Whisper dictation ready (streaming mode).")
-print("   Press Ctrl+F5 to start streaming, press again to stop.")
-print("   Edit HOTKEY in the script to change the key.\n")
+log(_SVC, "INFO", "ready — press Ctrl+F5 to start streaming")
 
 with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
     listener.join()

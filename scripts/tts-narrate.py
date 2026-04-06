@@ -27,6 +27,9 @@ from jarvis_config import (
 from jarvis_config import (
     NARRATE_TTS_SCRIPT as TTS_SCRIPT,
 )
+from jarvis_log import log
+
+_SVC = "tts-narrate"
 
 # Toggle combo: Ctrl+Shift+F5
 HOTKEY = {keyboard.Key.ctrl, keyboard.Key.shift, keyboard.Key.f5}
@@ -71,11 +74,11 @@ def speak(text: str) -> None:
     try:
         proc.wait(timeout=300)  # 5 min hard ceiling; Qwen3-TTS is slow but not infinite
     except subprocess.TimeoutExpired:
-        print("❌ TTS timed out — killing process.")
+        log(_SVC, "ERROR", "TTS timed out — killing process")
         with contextlib.suppress(ProcessLookupError):
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
     except Exception as e:
-        print(f"❌ TTS error: {e}")
+        log(_SVC, "ERROR", f"TTS error: {e}")
     finally:
         tts_proc = None
         _speaking.clear()
@@ -87,7 +90,7 @@ def stop_speaking() -> None:
     if proc is not None:
         with contextlib.suppress(ProcessLookupError):
             os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        print("⏹  Stopped.")
+        log(_SVC, "INFO", "playback stopped")
 
 
 # ── Hotkey handler ────────────────────────────────────────────────────────────
@@ -125,20 +128,17 @@ def on_release(key):
 
     text = text.strip()
     if not text:
-        print("⚠️  No text selected.")
+        log(_SVC, "WARN", "hotkey pressed but no text selected")
         return
 
-    print(f"🔊 Narrating ({len(text)} chars)...")
+    log(_SVC, "INFO", f"narrating {len(text)} chars")
     _speaking.set()
     threading.Thread(target=speak, args=(text,), daemon=True).start()
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-print("🟢 JARVIS narrate ready.")
-print("   Select text anywhere, then press Ctrl+Shift+F5 to hear it.")
-print("   Press Ctrl+Shift+F5 again while speaking to stop.")
-print("   Edit HOTKEY in the script to change the key.\n")
+log(_SVC, "INFO", "ready — select text and press Ctrl+Shift+F5")
 
 with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
     listener.join()
