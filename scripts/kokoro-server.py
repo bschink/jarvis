@@ -9,6 +9,8 @@ Managed by launchd (com.kokoro.server) — do not run multiple instances.
 
 import io
 import os
+import sys
+from contextlib import asynccontextmanager
 
 import soundfile as sf
 import uvicorn
@@ -17,23 +19,24 @@ from fastapi.responses import Response
 from kokoro_onnx import Kokoro
 from pydantic import BaseModel
 
-# ── Configuration ─────────────────────────────────────────────────────────────
-
-HOST         = "127.0.0.1"
-PORT         = 8880
-MODEL_PATH   = os.path.expanduser("~/.cache/kokoro/kokoro-v1.0.onnx")
-VOICES_PATH  = os.path.expanduser("~/.cache/kokoro/voices-v1.0.bin")
-DEFAULT_VOICE = "af_heart"
-DEFAULT_SPEED = 1.0
+sys.path.insert(0, os.path.dirname(__file__))
+from jarvis_config import (
+    KOKORO_HOST as HOST,
+    KOKORO_PORT as PORT,
+    KOKORO_MODEL_PATH as MODEL_PATH,
+    KOKORO_VOICES_PATH as VOICES_PATH,
+    KOKORO_DEFAULT_VOICE as DEFAULT_VOICE,
+    KOKORO_DEFAULT_SPEED as DEFAULT_SPEED,
+    KOKORO_DEFAULT_LANG as DEFAULT_LANG,
+)
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-app = FastAPI(title="kokoro-server")
 kokoro: Kokoro | None = None
 
 
-@app.on_event("startup")
-def startup() -> None:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global kokoro
     for path in (MODEL_PATH, VOICES_PATH):
         if not os.path.exists(path):
@@ -44,6 +47,10 @@ def startup() -> None:
     print(f"🔊 Loading Kokoro model from {MODEL_PATH} ...")
     kokoro = Kokoro(MODEL_PATH, VOICES_PATH)
     print(f"✅ Kokoro server ready on {HOST}:{PORT}")
+    yield
+
+
+app = FastAPI(title="kokoro-server", lifespan=lifespan)
 
 
 class SpeechRequest(BaseModel):
@@ -51,6 +58,7 @@ class SpeechRequest(BaseModel):
     input: str
     voice: str = DEFAULT_VOICE
     speed: float = DEFAULT_SPEED
+    lang: str = DEFAULT_LANG
 
 
 @app.post("/v1/audio/speech")
@@ -59,7 +67,7 @@ def speech(req: SpeechRequest) -> Response:
         raise HTTPException(status_code=503, detail="Model not loaded")
     try:
         samples, sample_rate = kokoro.create(
-            req.input, voice=req.voice, speed=req.speed, lang="en-us"
+            req.input, voice=req.voice, speed=req.speed, lang=req.lang
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

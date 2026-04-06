@@ -12,6 +12,7 @@ Usage:
 import argparse
 import io
 import os
+import sys
 
 import requests
 import sounddevice as sd
@@ -19,23 +20,21 @@ import soundfile as sf
 from mlx_audio.tts.audio_player import AudioPlayer
 from mlx_audio.tts.utils import load_model
 
-# ── Configuration ─────────────────────────────────────────────────────────────
-
-THRESHOLD      = 200                                     # chars — below: Kokoro, at or above: Qwen3-TTS
-KOKORO_URL     = "http://127.0.0.1:8880/v1/audio/speech"
-KOKORO_VOICE   = "af_heart"                                # see Customisation in docs/tts-setup.md
-QWEN3_LOCAL_PATH = os.path.expanduser(
-    "~/.cache/huggingface/hub/"
-    "models--mlx-community--Qwen3-TTS-12Hz-1.7B-VoiceDesign-6bit/snapshots/main"
+sys.path.insert(0, os.path.dirname(__file__))
+from jarvis_config import (
+    ROUTING_THRESHOLD as THRESHOLD,
+    KOKORO_URL,
+    KOKORO_DEFAULT_VOICE as KOKORO_VOICE,
+    QWEN3_LOCAL_PATH,
+    QWEN3_MODE,
+    QWEN3_VOICE,
+    QWEN3_INSTRUCT,
+    QWEN3_GENDER,
+    QWEN3_TEMP,
+    QWEN3_TOP_K,
+    QWEN3_CFG,
+    QWEN3_SR,
 )
-QWEN3_MODE     = "voicedesign"                           # "customvoice" or "voicedesign"
-QWEN3_VOICE    = "vivian"                                # customvoice only: serena, vivian, ryan, aiden, eric, dylan, sohee
-QWEN3_INSTRUCT = "A young woman, warm and slightly husky, calm and intimate, natural conversational rhythm, expressive"  # voicedesign only
-QWEN3_GENDER   = "female"                                # "male" or "female"
-QWEN3_TEMP     = 0                                       # 0 = deterministic
-QWEN3_TOP_K    = 1
-QWEN3_CFG      = 1.0
-QWEN3_SR       = 24000                                   # Hz — Qwen3-TTS output sample rate
 
 # ── Qwen3-TTS lazy model loader ───────────────────────────────────────────────
 
@@ -44,6 +43,11 @@ _qwen3_model = None
 def _get_qwen3_model():
     global _qwen3_model
     if _qwen3_model is None:
+        if not os.path.isdir(QWEN3_LOCAL_PATH):
+            raise FileNotFoundError(
+                f"Qwen3-TTS model not found: {QWEN3_LOCAL_PATH}\n"
+                "Download via mlx-audio — see docs/tts-setup.md Part 4."
+            )
         print("⏳ Loading Qwen3-TTS model...")
         _qwen3_model = load_model(QWEN3_LOCAL_PATH)
         print("✅ Model loaded.")

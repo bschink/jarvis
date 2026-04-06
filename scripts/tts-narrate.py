@@ -10,24 +10,28 @@ Flow: hotkey → Cmd+C → read clipboard → restore clipboard → speak via tt
 import os
 import signal
 import subprocess
+import sys
 import threading
 import time
 
 from pynput import keyboard
 
-# ── Configuration ─────────────────────────────────────────────────────────────
+sys.path.insert(0, os.path.dirname(__file__))
+from jarvis_config import (
+    NARRATE_TTS_PYTHON as TTS_PYTHON,
+    NARRATE_TTS_SCRIPT as TTS_SCRIPT,
+    NARRATE_COPY_DELAY as COPY_DELAY,
+)
 
-HOTKEY     = {keyboard.Key.ctrl, keyboard.Key.shift, keyboard.Key.f5}
-TTS_PYTHON = os.path.expanduser("~/.venv/tts-speak/bin/python")
-TTS_SCRIPT = os.path.expanduser("~/scripts/tts-router.py")
-COPY_DELAY = 0.15   # seconds to wait after Cmd+C before reading clipboard
+# Toggle combo: Ctrl+Shift+F5
+HOTKEY = {keyboard.Key.ctrl, keyboard.Key.shift, keyboard.Key.f5}
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
 current_keys = set()
-busy = False
-triggered = False   # hotkey was pressed, waiting for release to fire
-tts_proc = None     # current TTS subprocess (Popen handle)
+_speaking = threading.Event()  # set = currently speaking, clear = idle
+triggered = False              # hotkey was pressed, waiting for release to fire
+tts_proc = None                # current TTS subprocess (Popen handle)
 
 # ── Clipboard helpers ─────────────────────────────────────────────────────────
 
@@ -49,18 +53,24 @@ def copy_selection() -> str:
 # ── TTS ───────────────────────────────────────────────────────────────────────
 
 def speak(text: str) -> None:
-    global busy, tts_proc
+    global tts_proc
     try:
         tts_proc = subprocess.Popen(
             [TTS_PYTHON, TTS_SCRIPT, "--long", text],
             start_new_session=True,
         )
-        tts_proc.wait()
+        tts_proc.wait(timeout=300)  # 5 min hard ceiling; Qwen3-TTS is slow but not infinite
+    except subprocess.TimeoutExpired:
+        print("❌ TTS timed out — killing process.")
+        try:
+            os.killpg(os.getpgid(tts_proc.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
     except Exception as e:
         print(f"❌ TTS error: {e}")
     finally:
         tts_proc = None
-        busy = False
+        _speaking.clear()
 
 
 def stop_speaking() -> None:
@@ -82,7 +92,7 @@ def on_press(key):
         triggered = True
 
 def on_release(key):
-    global busy, triggered
+    global triggered
     current_keys.discard(key)
     if not triggered:
         return
@@ -91,7 +101,7 @@ def on_release(key):
         return
     triggered = False
 
-    if busy:
+    if _speaking.is_set():
         stop_speaking()
         return
 
@@ -105,7 +115,7 @@ def on_release(key):
         return
 
     print(f"🔊 Narrating ({len(text)} chars)...")
-    busy = True
+    _speaking.set()
     threading.Thread(target=speak, args=(text,), daemon=True).start()
 
 # ── Main ──────────────────────────────────────────────────────────────────────

@@ -30,18 +30,24 @@ Personal AI assistant system for Bene, running entirely local, open source, and 
 
 ```
 jarvis/
-├── README.md
-├── docs/
-│   ├── stt-setup.md          ← whisper.cpp + Core ML + hotkey (done)
-│   ├── tts-setup.md          ← Qwen3-TTS + Kokoro-ONNX (planned)
-│   ├── llm-setup.md          ← Ollama + Qwen3 14B (planned)
-│   └── mcp-setup.md          ← Claude Desktop + MCP servers (planned)
+├── install.sh                        ← deploy scripts + restart live services
 ├── scripts/
-│   └── whisper-dictate.py    ← system-wide push-to-talk dictation (done)
+│   ├── jarvis_config.py              ← single source of truth for all settings
+│   ├── whisper-dictate.py            ← Ctrl+F5 push-to-talk dictation daemon
+│   ├── kokoro-server.py              ← Kokoro-ONNX HTTP server (port 8880)
+│   ├── tts-router.py                 ← routes text to Kokoro or Qwen3-TTS by length
+│   └── tts-narrate.py                ← Ctrl+Shift+F5 "read this" daemon
 ├── launchd/
-│   ├── com.whisper.server.plist
-│   └── com.whisper.dictate.plist
-└── jarvis-sandbox/           ← the ONLY folder any agent gets filesystem access to
+│   ├── com.whisper.server.plist      ← auto-start whisper-server
+│   ├── com.whisper.dictate.plist     ← auto-start dictation daemon
+│   ├── com.kokoro.server.plist       ← auto-start Kokoro server
+│   └── com.tts.narrate.plist         ← auto-start narrate daemon
+├── docs/
+│   ├── stt-setup.md                  ← whisper.cpp + Core ML + hotkey (done)
+│   ├── tts-setup.md                  ← Kokoro + Qwen3-TTS (done)
+│   ├── llm-setup.md                  ← Ollama + Qwen3 14B (planned)
+│   └── mcp-setup.md                  ← Claude Desktop + MCP servers (planned)
+└── jarvis-sandbox/                   ← the ONLY folder any agent gets filesystem access to
 ```
 
 ## Workflow
@@ -85,9 +91,10 @@ These are hard constraints, not preferences. Never suggest patterns that violate
 
 | Component | Status | Notes |
 |---|---|---|
-| STT (whisper.cpp + hotkey) | ✅ Done | whisper-server on `127.0.0.1:2022`, push-to-talk dictation via launchd |
-| TTS — Kokoro-ONNX | 🔲 Planned | Real-time, conversational replies |
-| TTS — Qwen3-TTS (MLX) | 🔲 Planned | Quality, longer content, voice cloning |
+| STT (whisper.cpp + hotkey) | ✅ Done | whisper-server on `127.0.0.1:2022`, streaming dictation via launchd |
+| TTS — Kokoro-ONNX | ✅ Done | HTTP server on `127.0.0.1:8880`, launchd managed |
+| TTS — Qwen3-TTS (MLX) | ✅ Done | mlx-audio, quality path via tts-router.py |
+| TTS routing + narrate daemon | ✅ Done | tts-router.py + tts-narrate.py, Ctrl+Shift+F5 hotkey |
 | Local LLM (Ollama + Qwen3 14B) | 🔲 Planned | `docs/llm-setup.md` |
 | MCP + Claude Desktop | 🔲 Planned | Read-only MCP first |
 | Voice conversation loop | 🔲 Planned | STT → LLM → TTS pipeline |

@@ -6,19 +6,22 @@ Transcription is typed progressively into whatever app is currently focused.
 """
 
 import os
+import queue
 import re
 import signal
 import subprocess
+import sys
 import threading
 from pynput import keyboard
 
-# ── Configuration ─────────────────────────────────────────────────────────────
-
-MODEL_PATH = os.path.expanduser("~/.cache/whisper/ggml-large-v3-turbo.bin")
-LANGUAGE = "auto"
-WHISPER_STREAM_STEP_MS   = 2000   # process a new chunk every 2s
-WHISPER_STREAM_LENGTH_MS = 10000  # context window per chunk (longer = fewer mid-sentence cuts)
-WHISPER_STREAM_KEEP_MS   = 0      # no overlap — re-processing causes non-deterministic duplicates
+sys.path.insert(0, os.path.dirname(__file__))
+from jarvis_config import (
+    STT_MODEL_PATH as MODEL_PATH,
+    STT_LANGUAGE as LANGUAGE,
+    WHISPER_STREAM_STEP_MS,
+    WHISPER_STREAM_LENGTH_MS,
+    WHISPER_STREAM_KEEP_MS,
+)
 
 # Toggle combo: Ctrl+F5. macOS intercepts bare F5 at the system level;
 # a modifier combo bypasses that. Change to taste.
@@ -26,9 +29,11 @@ HOTKEY = {keyboard.Key.ctrl, keyboard.Key.f5}
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
-whisper_proc  = None   # subprocess.Popen handle
-reader_thread = None   # stdout-reading daemon thread
+whisper_proc  = None          # subprocess.Popen handle
+reader_thread = None          # stdout-reading daemon thread
 current_keys  = set()
+triggered     = False         # hotkey was pressed, waiting for full release before firing
+_type_queue: queue.Queue = queue.Queue()  # decouples stdout reader from osascript calls
 
 # ── Streaming ─────────────────────────────────────────────────────────────────
 
@@ -42,6 +47,20 @@ _HALLUCINATIONS = {
     "Okay.", "Okay!", "OK.", "Amen.", "Bye.", "Bye!",
     "...", ". . .", ".",
 }
+
+def _typer_worker():
+    """Drain _type_queue and call type_text sequentially in a dedicated thread.
+
+    Keeping typing out of _read_stdout means the stdout pipe is always drained
+    promptly — osascript latency (~50–200 ms per call) can no longer back up the
+    64 KB kernel pipe buffer and stall whisper-stream mid-session.
+    """
+    while True:
+        text = _type_queue.get()
+        if text is None:   # sentinel — stop the worker
+            break
+        type_text(text)
+
 
 def _read_stdout(proc):
     first_chunk = True
@@ -64,7 +83,7 @@ def _read_stdout(proc):
         out = (' ' if not first_chunk else '') + text
         first_chunk = False
         print(f"✅ '{out}'")
-        type_text(out)
+        _type_queue.put(out)   # hand off; don't block the reader
 
 def start_streaming():
     global whisper_proc, reader_thread
@@ -82,6 +101,7 @@ def start_streaming():
         stderr=subprocess.DEVNULL,
         bufsize=0,
     )
+    threading.Thread(target=_typer_worker, daemon=True).start()
     reader_thread = threading.Thread(target=_read_stdout, args=(whisper_proc,), daemon=True)
     reader_thread.start()
     print("🎙  Streaming...")
@@ -90,7 +110,11 @@ def stop_streaming():
     global whisper_proc, reader_thread
     if whisper_proc is not None:
         whisper_proc.terminate()
-        whisper_proc.wait(timeout=3)
+        try:
+            whisper_proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            whisper_proc.kill()
+            whisper_proc.wait()
         whisper_proc = None
     reader_thread = None
     print("⏹  Stopped.")
@@ -108,15 +132,24 @@ def type_text(text):
 # ── Hotkey Listener ───────────────────────────────────────────────────────────
 
 def on_press(key):
+    global triggered
     current_keys.add(key)
-    if HOTKEY.issubset(current_keys):
-        if whisper_proc is None:
-            start_streaming()
-        else:
-            threading.Thread(target=stop_streaming, daemon=True).start()
+    if HOTKEY.issubset(current_keys) and not triggered:
+        triggered = True
 
 def on_release(key):
+    global triggered
     current_keys.discard(key)
+    if not triggered:
+        return
+    # fire once all hotkey keys are fully released
+    if any(k in current_keys for k in HOTKEY):
+        return
+    triggered = False
+    if whisper_proc is None:
+        start_streaming()
+    else:
+        threading.Thread(target=stop_streaming, daemon=True).start()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 

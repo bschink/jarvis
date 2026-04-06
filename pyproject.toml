@@ -1,7 +1,7 @@
 [project]
 name = "jarvis"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local AI assistant — 100% offline, Apple Silicon optimised. STT → LLM → TTS pipeline."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

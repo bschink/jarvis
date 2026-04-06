@@ -6,11 +6,12 @@ Personal AI assistant running 100% local on an M5 Pro MacBook. No cloud, no API 
 
 | Layer | Tech | Status |
 | --- | --- | --- |
-| STT | whisper.cpp large-v3-turbo + Core ML | Planned |
-| LLM | Qwen3 14B Q4_K_M via Ollama | Planned |
-| TTS (fast) | Kokoro-ONNX | Planned |
-| TTS (quality) | Qwen3-TTS 1.7B via mlx-audio | Planned |
-| Orchestration | MCP + Claude Desktop | Planned |
+| STT | whisper.cpp large-v3-turbo + Core ML | ✅ Done |
+| LLM | Qwen3 14B Q4_K_M via Ollama | 🔲 Planned |
+| TTS (fast) | Kokoro-ONNX | ✅ Done |
+| TTS (quality) | Qwen3-TTS 1.7B via mlx-audio | ✅ Done |
+| TTS routing + narrate | tts-router.py + tts-narrate.py | ✅ Done |
+| Orchestration | MCP + Claude Desktop | 🔲 Planned |
 
 ## Ports
 
@@ -24,10 +25,22 @@ Personal AI assistant running 100% local on an M5 Pro MacBook. No cloud, no API 
 
 ```text
 jarvis/
-├── docs/          # setup guides per component
-├── scripts/       # push-to-talk dictation, helpers
-├── launchd/       # plist files for auto-start services
-└── jarvis-sandbox/ # isolated workspace for agent experiments
+├── install.sh                        ← deploy scripts + restart live services
+├── scripts/
+│   ├── jarvis_config.py              ← single source of truth for all settings
+│   ├── whisper-dictate.py            ← Ctrl+F5 push-to-talk dictation daemon
+│   ├── kokoro-server.py              ← Kokoro-ONNX HTTP server (port 8880)
+│   ├── tts-router.py                 ← routes text to Kokoro or Qwen3-TTS by length
+│   └── tts-narrate.py                ← Ctrl+Shift+F5 "read this" daemon
+├── launchd/
+│   ├── com.whisper.server.plist      ← auto-start whisper-server
+│   ├── com.whisper.dictate.plist     ← auto-start dictation daemon
+│   ├── com.kokoro.server.plist       ← auto-start Kokoro server
+│   └── com.tts.narrate.plist         ← auto-start narrate daemon
+├── docs/
+│   ├── stt-setup.md                  ← whisper.cpp + hotkey setup guide
+│   └── tts-setup.md                  ← Kokoro + Qwen3-TTS setup guide
+└── jarvis-sandbox/                   ← isolated workspace for agent experiments
 ```
 
 ## Security model
