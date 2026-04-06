@@ -19,6 +19,9 @@ from pynput import keyboard
 
 sys.path.insert(0, os.path.dirname(__file__))
 from jarvis_config import (
+    HEARTBEAT_INTERVAL_S,
+)
+from jarvis_config import (
     NARRATE_COPY_DELAY as COPY_DELAY,
 )
 from jarvis_config import (
@@ -30,6 +33,19 @@ from jarvis_config import (
 from jarvis_log import log
 
 _SVC = "tts-narrate"
+
+
+def _start_heartbeat() -> None:
+    import time
+    from pathlib import Path
+
+    path = Path(f"/tmp/jarvis-{_SVC}.heartbeat")
+    while True:
+        path.write_text(str(time.time()))
+        time.sleep(HEARTBEAT_INTERVAL_S)
+
+
+threading.Thread(target=_start_heartbeat, daemon=True).start()
 
 # Toggle combo: Ctrl+Shift+F5
 HOTKEY = {keyboard.Key.ctrl, keyboard.Key.shift, keyboard.Key.f5}

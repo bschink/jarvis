@@ -16,20 +16,35 @@ from pynput import keyboard
 
 sys.path.insert(0, os.path.dirname(__file__))
 from jarvis_config import (
-    STT_LANGUAGE as LANGUAGE,
-)
-from jarvis_config import (
-    STT_MODEL_PATH as MODEL_PATH,
-)
-from jarvis_config import (
+    HEARTBEAT_INTERVAL_S,
     WHISPER_STREAM_KEEP_MS,
     WHISPER_STREAM_LENGTH_MS,
     WHISPER_STREAM_STEP_MS,
     WHISPER_STREAM_VAD_THRESHOLD,
 )
+from jarvis_config import (
+    STT_LANGUAGE as LANGUAGE,
+)
+from jarvis_config import (
+    STT_MODEL_PATH as MODEL_PATH,
+)
 from jarvis_log import log
 
 _SVC = "whisper-dictate"
+
+
+def _start_heartbeat() -> None:
+    """Write a timestamp to /tmp/jarvis-<svc>.heartbeat every HEARTBEAT_INTERVAL_S seconds."""
+    import time
+    from pathlib import Path
+
+    path = Path(f"/tmp/jarvis-{_SVC}.heartbeat")
+    while True:
+        path.write_text(str(time.time()))
+        time.sleep(HEARTBEAT_INTERVAL_S)
+
+
+threading.Thread(target=_start_heartbeat, daemon=True).start()
 
 # Toggle combo: Ctrl+F5. macOS intercepts bare F5 at the system level;
 # a modifier combo bypasses that. Change to taste.

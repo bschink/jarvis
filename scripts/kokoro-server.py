@@ -10,7 +10,10 @@ Managed by launchd (com.kokoro.server) — do not run multiple instances.
 import io
 import os
 import sys
+import threading
+import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import soundfile as sf
 import uvicorn
@@ -20,6 +23,9 @@ from kokoro_onnx import Kokoro
 from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(__file__))
+from jarvis_config import (
+    HEARTBEAT_INTERVAL_S,
+)
 from jarvis_config import (
     KOKORO_DEFAULT_LANG as DEFAULT_LANG,
 )
@@ -44,6 +50,16 @@ from jarvis_config import (
 from jarvis_log import log
 
 _SVC = "kokoro-server"
+
+
+def _start_heartbeat() -> None:
+    path = Path(f"/tmp/jarvis-{_SVC}.heartbeat")
+    while True:
+        path.write_text(str(time.time()))
+        time.sleep(HEARTBEAT_INTERVAL_S)
+
+
+threading.Thread(target=_start_heartbeat, daemon=True).start()
 
 # ── App ───────────────────────────────────────────────────────────────────────
 

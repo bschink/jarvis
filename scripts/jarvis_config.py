@@ -75,3 +75,8 @@ ROUTING_THRESHOLD = 200  # chars: below → Kokoro, at or above → Qwen3-TTS
 NARRATE_TTS_PYTHON = os.path.expanduser("~/.venv/tts-speak/bin/python")
 NARRATE_TTS_SCRIPT = os.path.expanduser("~/scripts/tts-router.py")
 NARRATE_COPY_DELAY = 0.15  # seconds to wait after Cmd+C before reading clipboard
+
+# ── Heartbeat ─────────────────────────────────────────────────────────────────
+
+HEARTBEAT_INTERVAL_S = 30  # seconds between heartbeat file writes
+HEARTBEAT_STALE_S = 90  # age threshold above which a service is considered STALE (> 3 missed beats)

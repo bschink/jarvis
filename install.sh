@@ -11,6 +11,7 @@ TARGET_DIR="$HOME/scripts"
 SCRIPTS=(
     jarvis_config.py
     jarvis_log.py
+    jarvis-status.py
     whisper-dictate.py
     kokoro-server.py
     tts-router.py
