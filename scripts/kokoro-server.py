@@ -21,13 +21,25 @@ from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(__file__))
 from jarvis_config import (
-    KOKORO_HOST as HOST,
-    KOKORO_PORT as PORT,
-    KOKORO_MODEL_PATH as MODEL_PATH,
-    KOKORO_VOICES_PATH as VOICES_PATH,
-    KOKORO_DEFAULT_VOICE as DEFAULT_VOICE,
-    KOKORO_DEFAULT_SPEED as DEFAULT_SPEED,
     KOKORO_DEFAULT_LANG as DEFAULT_LANG,
+)
+from jarvis_config import (
+    KOKORO_DEFAULT_SPEED as DEFAULT_SPEED,
+)
+from jarvis_config import (
+    KOKORO_DEFAULT_VOICE as DEFAULT_VOICE,
+)
+from jarvis_config import (
+    KOKORO_HOST as HOST,
+)
+from jarvis_config import (
+    KOKORO_MODEL_PATH as MODEL_PATH,
+)
+from jarvis_config import (
+    KOKORO_PORT as PORT,
+)
+from jarvis_config import (
+    KOKORO_VOICES_PATH as VOICES_PATH,
 )
 
 # ── App ───────────────────────────────────────────────────────────────────────
@@ -70,7 +82,7 @@ def speech(req: SpeechRequest) -> Response:
             req.input, voice=req.voice, speed=req.speed, lang=req.lang
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     buf = io.BytesIO()
     sf.write(buf, samples, sample_rate, format="WAV")

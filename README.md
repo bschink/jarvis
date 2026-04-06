@@ -43,6 +43,28 @@ jarvis/
 └── jarvis-sandbox/                   ← isolated workspace for agent experiments
 ```
 
+## Development
+
+### Fresh clone setup
+
+```bash
+# 1. Install Homebrew system tools (whisper.cpp, Ollama) — see docs/ for details
+# 2. Install Python dev dependencies
+uv sync --group dev
+
+# 3. Install git hooks (run once)
+uv run pre-commit install
+```
+
+### Day-to-day
+
+```bash
+uv run pytest                      # run tests (no hardware required — all mocked)
+uv run pre-commit run --all-files  # lint, type-check, test without committing
+```
+
+Pre-commit runs automatically on every `git commit`: ruff (lint + format), mypy, pytest.
+
 ## Security model
 
 - Read-only data access first; write access behind explicit confirmation gates

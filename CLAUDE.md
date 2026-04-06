@@ -14,6 +14,45 @@ Personal AI assistant system for Bene, running entirely local, open source, and 
 - **Incremental trust** — sandbox before real data. Test on dummy data for weeks before connecting anything real.
 - **Apple Silicon optimised** — prefer Core ML, MLX, and Metal-accelerated paths. This is an M5 Pro with 24GB unified memory.
 
+## Testing and Code Quality
+
+### Running Tests
+
+```bash
+uv run pytest
+```
+
+Tests live in `tests/` — one file per script. All tests are hardware-free: no mic, speaker, GPU, running Kokoro server, or keyboard access required. Every hardware-dependent import (`kokoro_onnx`, `sounddevice`, `mlx_audio`, `pynput`) is stubbed via `unittest.mock` before the script is loaded.
+
+### Pre-commit Pipeline
+
+Install once after cloning:
+
+```bash
+uv sync --group dev
+uv run pre-commit install
+```
+
+Every `git commit` then runs automatically:
+
+- **ruff** — lint and auto-format
+- **mypy** — static type checking (hardware stubs configured in `pyproject.toml`)
+- **pytest** — full test suite
+- **pre-commit-hooks** — trailing whitespace, EOF, YAML syntax
+
+To run manually without committing:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+### Adding Tests for New Scripts
+
+1. Extract pure logic (no I/O, no side effects) into a named helper function.
+2. Create `tests/test_<scriptname>.py`.
+3. Load the file via `importlib.util.spec_from_file_location` (handles hyphenated filenames).
+4. Stub all hardware imports with `patch.dict(sys.modules, {...})` **before** calling `spec.loader.exec_module(mod)`.
+
 ## Development Setup
 
 - **OS:** macOS 26.4
@@ -31,6 +70,13 @@ Personal AI assistant system for Bene, running entirely local, open source, and 
 ```
 jarvis/
 ├── install.sh                        ← deploy scripts + restart live services
+├── tests/
+│   ├── conftest.py                   ← sys.path setup, shared fixtures
+│   ├── test_config.py
+│   ├── test_kokoro_server.py
+│   ├── test_tts_router.py
+│   ├── test_tts_narrate.py
+│   └── test_whisper_dictate.py
 ├── scripts/
 │   ├── jarvis_config.py              ← single source of truth for all settings
 │   ├── whisper-dictate.py            ← Ctrl+F5 push-to-talk dictation daemon
@@ -70,6 +116,7 @@ jarvis/
 ### Documentation Standard
 
 Every new component gets a `docs/<component>-setup.md` that covers:
+
 - Prerequisites and install steps
 - Exact commands to start/stop the service
 - How to verify it's working (what to run, what to expect)
@@ -90,7 +137,7 @@ These are hard constraints, not preferences. Never suggest patterns that violate
 ## Component Status
 
 | Component | Status | Notes |
-|---|---|---|
+| --- | --- | --- |
 | STT (whisper.cpp + hotkey) | ✅ Done | whisper-server on `127.0.0.1:2022`, streaming dictation via launchd |
 | TTS — Kokoro-ONNX | ✅ Done | HTTP server on `127.0.0.1:8880`, launchd managed |
 | TTS — Qwen3-TTS (MLX) | ✅ Done | mlx-audio, quality path via tts-router.py |

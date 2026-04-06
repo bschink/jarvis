@@ -22,23 +22,27 @@ from mlx_audio.tts.utils import load_model
 
 sys.path.insert(0, os.path.dirname(__file__))
 from jarvis_config import (
-    ROUTING_THRESHOLD as THRESHOLD,
-    KOKORO_URL,
     KOKORO_DEFAULT_VOICE as KOKORO_VOICE,
+)
+from jarvis_config import (
+    KOKORO_URL,
+    QWEN3_CFG,
+    QWEN3_INSTRUCT,
     QWEN3_LOCAL_PATH,
     QWEN3_MODE,
-    QWEN3_VOICE,
-    QWEN3_INSTRUCT,
-    QWEN3_GENDER,
+    QWEN3_SR,
     QWEN3_TEMP,
     QWEN3_TOP_K,
-    QWEN3_CFG,
-    QWEN3_SR,
+    QWEN3_VOICE,
+)
+from jarvis_config import (
+    ROUTING_THRESHOLD as THRESHOLD,
 )
 
 # ── Qwen3-TTS lazy model loader ───────────────────────────────────────────────
 
 _qwen3_model = None
+
 
 def _get_qwen3_model():
     global _qwen3_model
@@ -53,7 +57,9 @@ def _get_qwen3_model():
         print("✅ Model loaded.")
     return _qwen3_model
 
+
 # ── Kokoro (fast path) ────────────────────────────────────────────────────────
+
 
 def speak_kokoro(text: str) -> None:
     print(f"🔊 Kokoro ({len(text)} chars)...")
@@ -75,14 +81,18 @@ def speak_kokoro(text: str) -> None:
     except Exception as e:
         print(f"❌ Error: {e}")
 
+
 # ── Qwen3-TTS (quality path) ──────────────────────────────────────────────────
+
 
 def speak_qwen3(text: str) -> None:
     print(f"🔊 Qwen3-TTS ({len(text)} chars) — streaming by paragraph...")
     try:
         model = _get_qwen3_model()
         player = AudioPlayer(sample_rate=QWEN3_SR)
-        kwargs = {"instruct": QWEN3_INSTRUCT} if QWEN3_MODE == "voicedesign" else {"voice": QWEN3_VOICE}
+        kwargs = (
+            {"instruct": QWEN3_INSTRUCT} if QWEN3_MODE == "voicedesign" else {"voice": QWEN3_VOICE}
+        )
         for result in model.generate(
             text,
             temperature=QWEN3_TEMP,
@@ -98,7 +108,23 @@ def speak_qwen3(text: str) -> None:
     except Exception as e:
         print(f"❌ Error: {e}")
 
+
 # ── Router ────────────────────────────────────────────────────────────────────
+
+
+def _choose_backend(
+    text: str,
+    force_fast: bool = False,
+    force_long: bool = False,
+    threshold: int = THRESHOLD,
+) -> str:
+    """Return 'kokoro' or 'qwen3'. Pure function — no I/O."""
+    if force_fast:
+        return "kokoro"
+    if force_long:
+        return "qwen3"
+    return "kokoro" if len(text) < threshold else "qwen3"
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -110,18 +136,17 @@ def main() -> None:
     parser.add_argument("text", nargs="?", default=None, help="text to speak (auto-routed)")
     args = parser.parse_args()
 
-    if args.fast:
-        speak_kokoro(args.fast)
-    elif args.long:
-        speak_qwen3(args.long)
-    elif args.text:
-        if len(args.text) < THRESHOLD:
-            speak_kokoro(args.text)
-        else:
-            speak_qwen3(args.text)
-    else:
+    text = args.fast or args.long or args.text
+    if text is None:
         parser.print_help()
         raise SystemExit(1)
+
+    backend = _choose_backend(text, force_fast=bool(args.fast), force_long=bool(args.long))
+    if backend == "kokoro":
+        speak_kokoro(text)
+    else:
+        speak_qwen3(text)
+
 
 if __name__ == "__main__":
     main()

@@ -2,8 +2,8 @@
 
 Local, offline text-to-speech with two engines: Kokoro for real-time conversational replies, Qwen3-TTS for longer, higher-quality audio. A single router script picks the right engine automatically.
 
-**Stack:** Kokoro-ONNX · mlx-audio · Qwen3-TTS · Python · launchd  
-**Routing:** < 200 chars or voice loop → Kokoro · ≥ 200 chars or "read this" → Qwen3-TTS  
+**Stack:** Kokoro-ONNX · mlx-audio · Qwen3-TTS · Python · launchd
+**Routing:** < 200 chars or voice loop → Kokoro · ≥ 200 chars or "read this" → Qwen3-TTS
 **Hardware:** Apple Silicon Mac (M1–M5)
 
 ---
@@ -84,7 +84,7 @@ curl http://127.0.0.1:8880/v1/audio/speech \
 
 You should hear the sentence spoken. Response time should be under 1 second for short text.
 
-> **Available voices:** Dozens of voices are included in the v1.0 release (e.g., `af_bella`, `af_sky`, `am_michael`, `bf_emma`, `bm_george`, `ef_dora`, `ff_siwis`, `jf_alpha`, etc.) spanning multiple languages and American/British English accents.  
+> **Available voices:** Dozens of voices are included in the v1.0 release (e.g., `af_bella`, `af_sky`, `am_michael`, `bf_emma`, `bm_george`, `ef_dora`, `ff_siwis`, `jf_alpha`, etc.) spanning multiple languages and American/British English accents.
 > See the full list in the [Kokoro VOICES.md](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
 
 ---
@@ -231,7 +231,7 @@ Test it:
 The router (`tts-router.py`) picks an engine based on text length unless overridden:
 
 | Condition | Engine | Latency | Use case |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `< 200 chars` (default) | Kokoro-ONNX | < 1s | Conversational replies, voice loop |
 | `≥ 200 chars` (default) | Qwen3-TTS | 10–40s | Reading articles, long responses |
 | `--fast` flag | Kokoro-ONNX | < 1s | Force fast regardless of length |
@@ -343,6 +343,7 @@ launchctl kickstart -k gui/$(id -u)/com.kokoro.server
 ```
 
 Expected behaviour:
+
 1. `launchctl list | grep kokoro` returns a line with exit code `0` and the label `com.kokoro.server`
 2. Kokoro curl test plays audio in under a second
 3. Qwen3-TTS test plays after 10–40s on first run, faster on subsequent runs
@@ -405,30 +406,30 @@ QWEN3_INSTRUCT = "A calm, deep British male voice with a slight authoritative to
 
 ## Troubleshooting
 
-**"Kokoro server not reachable on port 8880"**  
-The server isn't running. Check: `launchctl list | grep kokoro` and `tail /tmp/kokoro-server.err`.  
+**"Kokoro server not reachable on port 8880"**
+The server isn't running. Check: `launchctl list | grep kokoro` and `tail /tmp/kokoro-server.err`.
 If the plist isn't loaded: re-run the `sed + launchctl load` commands from Part 3.
 
-**"Model file not found" on server start**  
+**"Model file not found" on server start**
 The ONNX model files haven't been downloaded yet. Follow the download step in Part 1 to place `kokoro-v1.0.onnx` and `voices-v1.0.bin` in `~/.cache/kokoro/`.
 
-**Qwen3-TTS: "No module named mlx_audio"**  
+**Qwen3-TTS: "No module named mlx_audio"**
 mlx-audio isn't installed in the right venv. The router script must be run with `~/.venv/tts-speak/bin/python`, not the system Python.
 
-**Qwen3-TTS generate command hangs with no output**  
+**Qwen3-TTS generate command hangs with no output**
 The auto-download from HuggingFace hangs silently on some networks. Download model files manually with curl as shown in Part 4. Also ensure you pass the local filesystem path (not the repo name) via `--model "$DEST"`.
 
-**Qwen3-TTS: "CustomVoice model requires 'voice'"**  
+**Qwen3-TTS: "CustomVoice model requires 'voice'"**
 The CustomVoice variant requires a `--voice` flag. Pass one of: `serena`, `vivian`, `uncle_fu`, `ryan`, `aiden`, `ono_anna`, `sohee`, `eric`, `dylan`.
 
-**Qwen3-TTS: "VoiceDesign model requires 'instruct'"**  
+**Qwen3-TTS: "VoiceDesign model requires 'instruct'"**
 The VoiceDesign variant uses `--instruct` (not `--voice`) with a free-form description e.g. `"A calm, deep British male voice"`.
 
-**Qwen3-TTS: "Tokenizer not loaded"**  
+**Qwen3-TTS: "Tokenizer not loaded"**
 The `tokenizer.json` file is missing from the mlx-community repo. Download it from Qwen2.5-0.5B as shown in the Part 4 download script — the tokenizer is identical.
 
-**Qwen3-TTS output file not found after generate**  
+**Qwen3-TTS output file not found after generate**
 mlx-audio treats `--output` as a directory prefix. The actual file is `{output}/audio_000.wav`, not `{output}` directly.
 
-**No audio output (sounddevice)**  
+**No audio output (sounddevice)**
 macOS audio output does not require explicit permission like Microphone access. If silent: check System Settings → Sound → Output device is set correctly, and that the Python process isn't sandboxed.

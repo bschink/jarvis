@@ -2,8 +2,8 @@
 
 Local, offline, push-to-talk dictation that works in any app. Hold a hotkey, speak, release — text is typed wherever your cursor is. No cloud, no API keys.
 
-**Stack:** whisper.cpp · Metal (Apple GPU) · Python · launchd  
-**Languages:** English + German (auto-detected)  
+**Stack:** whisper.cpp · Metal (Apple GPU) · Python · launchd
+**Languages:** English + German (auto-detected)
 **Hardware:** Apple Silicon Mac (M1–M5)
 
 ---
@@ -149,10 +149,10 @@ chmod +x ~/scripts/whisper-dictate.py
 
 The script needs two permissions. Both are requested automatically on first run, but you can add them manually:
 
-**Microphone access:**  
+**Microphone access:**
 System Settings → Privacy & Security → Microphone → enable `~/.venv/whisper-dictate/bin/jarvis-dictate`
 
-**Accessibility access** (required for typing into other apps):  
+**Accessibility access** (required for typing into other apps):
 System Settings → Privacy & Security → Accessibility → enable `~/.venv/whisper-dictate/bin/jarvis-dictate`
 
 > You need to add the venv Python binary specifically, not Terminal, because launchd invokes it directly.
@@ -248,17 +248,17 @@ def on_release(key):
 
 ## Troubleshooting
 
-**"Could not reach whisper-server"**  
+**"Could not reach whisper-server"**
 The server isn't running. Check: `launchctl list | grep whisper` and `tail /tmp/whisper-server.err`
 
-**Text doesn't appear in apps**  
+**Text doesn't appear in apps**
 Accessibility permission is missing. System Settings → Privacy & Security → Accessibility → add Terminal.
 
-**Slow transcription**  
+**Slow transcription**
 Metal GPU should be active by default. Run `whisper-server` from a valid directory (not a deleted folder) and check that it logs `loaded MTL backend` on startup.
 
-**Wrong language detected**  
+**Wrong language detected**
 Set `LANGUAGE = "de"` or `"en"` explicitly instead of `"auto"`.
 
-**`pynput` hotkey not triggering**  
+**`pynput` hotkey not triggering**
 On macOS 14+, Input Monitoring permission may be required in addition to Accessibility. Check System Settings → Privacy & Security → Input Monitoring.

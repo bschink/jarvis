@@ -8,19 +8,23 @@ Transcription is typed progressively into whatever app is currently focused.
 import os
 import queue
 import re
-import signal
 import subprocess
 import sys
 import threading
+
 from pynput import keyboard
 
 sys.path.insert(0, os.path.dirname(__file__))
 from jarvis_config import (
-    STT_MODEL_PATH as MODEL_PATH,
     STT_LANGUAGE as LANGUAGE,
-    WHISPER_STREAM_STEP_MS,
-    WHISPER_STREAM_LENGTH_MS,
+)
+from jarvis_config import (
+    STT_MODEL_PATH as MODEL_PATH,
+)
+from jarvis_config import (
     WHISPER_STREAM_KEEP_MS,
+    WHISPER_STREAM_LENGTH_MS,
+    WHISPER_STREAM_STEP_MS,
 )
 
 # Toggle combo: Ctrl+F5. macOS intercepts bare F5 at the system level;
@@ -29,24 +33,49 @@ HOTKEY = {keyboard.Key.ctrl, keyboard.Key.f5}
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
-whisper_proc  = None          # subprocess.Popen handle
-reader_thread = None          # stdout-reading daemon thread
-current_keys  = set()
-triggered     = False         # hotkey was pressed, waiting for full release before firing
+whisper_proc = None  # subprocess.Popen handle
+reader_thread = None  # stdout-reading daemon thread
+current_keys = set()
+triggered = False  # hotkey was pressed, waiting for full release before firing
 _type_queue: queue.Queue = queue.Queue()  # decouples stdout reader from osascript calls
 
 # ── Streaming ─────────────────────────────────────────────────────────────────
 
-_TIMESTAMP_RE  = re.compile(r'\[[\d:.]+ --> [\d:.]+\]\s*')
-_ANSI_RE       = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
+_TIMESTAMP_RE = re.compile(r"\[[\d:.]+ --> [\d:.]+\]\s*")
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
 # Common whisper hallucinations during silence — language-agnostic short phrases
 _HALLUCINATIONS = {
-    "Thank you.", "Thank you!", "Thanks for watching.", "Thanks for watching!",
-    "Thank you for watching.", "Thank you so much.", "Please subscribe.",
-    "Okay.", "Okay!", "OK.", "Amen.", "Bye.", "Bye!",
-    "...", ". . .", ".",
+    "Thank you.",
+    "Thank you!",
+    "Thanks for watching.",
+    "Thanks for watching!",
+    "Thank you for watching.",
+    "Thank you so much.",
+    "Please subscribe.",
+    "Okay.",
+    "Okay!",
+    "OK.",
+    "Amen.",
+    "Bye.",
+    "Bye!",
+    "...",
+    ". . .",
+    ".",
 }
+
+
+def clean_whisper_line(raw: str) -> str:
+    """Strip ANSI codes, carriage-return rewrites, and timestamp prefixes. Pure function."""
+    line = _ANSI_RE.sub("", raw)
+    line = line.split("\r")[-1]
+    return _TIMESTAMP_RE.sub("", line).strip()
+
+
+def is_hallucination(text: str) -> bool:
+    """Return True if text is a known Whisper hallucination or noise fragment. Pure function."""
+    return text in _HALLUCINATIONS or len(text) <= 2
+
 
 def _typer_worker():
     """Drain _type_queue and call type_text sequentially in a dedicated thread.
@@ -57,7 +86,7 @@ def _typer_worker():
     """
     while True:
         text = _type_queue.get()
-        if text is None:   # sentinel — stop the worker
+        if text is None:  # sentinel — stop the worker
             break
         type_text(text)
 
@@ -66,34 +95,35 @@ def _read_stdout(proc):
     first_chunk = True
 
     for raw in proc.stdout:
-        line = raw.decode('utf-8', errors='replace')
-        line = _ANSI_RE.sub('', line)
-        # whisper-stream uses \r to rewrite lines in-place; take the final state
-        line = line.split('\r')[-1]
-        text = _TIMESTAMP_RE.sub('', line).strip()
+        text = clean_whisper_line(raw.decode("utf-8", errors="replace"))
 
         # skip status messages like [Start speaking], [BLANK_AUDIO], etc.
-        if not text or text.startswith('['):
+        if not text or text.startswith("["):
             continue
-        # skip known hallucinations and single-character noise
-        if text in _HALLUCINATIONS or len(text) <= 2:
+        if is_hallucination(text):
             print(f"🚫 Filtered: '{text}'")
             continue
 
-        out = (' ' if not first_chunk else '') + text
+        out = (" " if not first_chunk else "") + text
         first_chunk = False
         print(f"✅ '{out}'")
-        _type_queue.put(out)   # hand off; don't block the reader
+        _type_queue.put(out)  # hand off; don't block the reader
+
 
 def start_streaming():
     global whisper_proc, reader_thread
     cmd = [
         "/opt/homebrew/bin/whisper-stream",
-        "--model",    MODEL_PATH,
-        "--language", LANGUAGE,
-        "--step",     str(WHISPER_STREAM_STEP_MS),
-        "--length",   str(WHISPER_STREAM_LENGTH_MS),
-        "--keep",     str(WHISPER_STREAM_KEEP_MS),
+        "--model",
+        MODEL_PATH,
+        "--language",
+        LANGUAGE,
+        "--step",
+        str(WHISPER_STREAM_STEP_MS),
+        "--length",
+        str(WHISPER_STREAM_LENGTH_MS),
+        "--keep",
+        str(WHISPER_STREAM_KEEP_MS),
     ]
     whisper_proc = subprocess.Popen(
         cmd,
@@ -105,6 +135,7 @@ def start_streaming():
     reader_thread = threading.Thread(target=_read_stdout, args=(whisper_proc,), daemon=True)
     reader_thread.start()
     print("🎙  Streaming...")
+
 
 def stop_streaming():
     global whisper_proc, reader_thread
@@ -119,23 +150,27 @@ def stop_streaming():
     reader_thread = None
     print("⏹  Stopped.")
 
+
 # ── Typing ────────────────────────────────────────────────────────────────────
+
 
 def type_text(text):
     """Type text into the currently focused app via osascript."""
-    escaped = text.replace('\\', '\\\\').replace('"', '\\"')
-    subprocess.run([
-        "osascript", "-e",
-        f'tell application "System Events" to keystroke "{escaped}"'
-    ])
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+    subprocess.run(
+        ["osascript", "-e", f'tell application "System Events" to keystroke "{escaped}"']
+    )
+
 
 # ── Hotkey Listener ───────────────────────────────────────────────────────────
+
 
 def on_press(key):
     global triggered
     current_keys.add(key)
-    if HOTKEY.issubset(current_keys) and not triggered:
+    if current_keys == HOTKEY and not triggered:
         triggered = True
+
 
 def on_release(key):
     global triggered
@@ -150,6 +185,7 @@ def on_release(key):
         start_streaming()
     else:
         threading.Thread(target=stop_streaming, daemon=True).start()
+
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 

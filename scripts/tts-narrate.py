@@ -7,6 +7,7 @@ Press Ctrl+Shift+F5 again while speaking to stop playback immediately.
 Flow: hotkey → Cmd+C → read clipboard → restore clipboard → speak via tts-router.py
 """
 
+import contextlib
 import os
 import signal
 import subprocess
@@ -18,9 +19,13 @@ from pynput import keyboard
 
 sys.path.insert(0, os.path.dirname(__file__))
 from jarvis_config import (
-    NARRATE_TTS_PYTHON as TTS_PYTHON,
-    NARRATE_TTS_SCRIPT as TTS_SCRIPT,
     NARRATE_COPY_DELAY as COPY_DELAY,
+)
+from jarvis_config import (
+    NARRATE_TTS_PYTHON as TTS_PYTHON,
+)
+from jarvis_config import (
+    NARRATE_TTS_SCRIPT as TTS_SCRIPT,
 )
 
 # Toggle combo: Ctrl+Shift+F5
@@ -30,42 +35,45 @@ HOTKEY = {keyboard.Key.ctrl, keyboard.Key.shift, keyboard.Key.f5}
 
 current_keys = set()
 _speaking = threading.Event()  # set = currently speaking, clear = idle
-triggered = False              # hotkey was pressed, waiting for release to fire
-tts_proc = None                # current TTS subprocess (Popen handle)
+triggered = False  # hotkey was pressed, waiting for release to fire
+tts_proc = None  # current TTS subprocess (Popen handle)
 
 # ── Clipboard helpers ─────────────────────────────────────────────────────────
+
 
 def clipboard_read() -> str:
     return subprocess.run(["pbpaste"], capture_output=True, text=True).stdout
 
+
 def clipboard_write(text: str) -> None:
     subprocess.run(["pbcopy"], input=text, text=True)
 
+
 def copy_selection() -> str:
     """Simulate Cmd+C, wait, return clipboard contents."""
-    subprocess.run([
-        "osascript", "-e",
-        'tell application "System Events" to keystroke "c" using command down'
-    ])
+    subprocess.run(
+        ["osascript", "-e", 'tell application "System Events" to keystroke "c" using command down']
+    )
     time.sleep(COPY_DELAY)
     return clipboard_read()
 
+
 # ── TTS ───────────────────────────────────────────────────────────────────────
+
 
 def speak(text: str) -> None:
     global tts_proc
+    proc = subprocess.Popen(
+        [TTS_PYTHON, TTS_SCRIPT, "--long", text],
+        start_new_session=True,
+    )
+    tts_proc = proc
     try:
-        tts_proc = subprocess.Popen(
-            [TTS_PYTHON, TTS_SCRIPT, "--long", text],
-            start_new_session=True,
-        )
-        tts_proc.wait(timeout=300)  # 5 min hard ceiling; Qwen3-TTS is slow but not infinite
+        proc.wait(timeout=300)  # 5 min hard ceiling; Qwen3-TTS is slow but not infinite
     except subprocess.TimeoutExpired:
         print("❌ TTS timed out — killing process.")
-        try:
-            os.killpg(os.getpgid(tts_proc.pid), signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
     except Exception as e:
         print(f"❌ TTS error: {e}")
     finally:
@@ -77,19 +85,25 @@ def stop_speaking() -> None:
     global tts_proc
     proc = tts_proc
     if proc is not None:
-        try:
+        with contextlib.suppress(ProcessLookupError):
             os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        except ProcessLookupError:
-            pass
         print("⏹  Stopped.")
 
+
 # ── Hotkey handler ────────────────────────────────────────────────────────────
+
+
+def _hotkey_complete(current_keys: set, hotkey: set) -> bool:
+    """Return True iff current_keys exactly equals the hotkey combo. Pure function."""
+    return current_keys == hotkey
+
 
 def on_press(key):
     global triggered
     current_keys.add(key)
     if current_keys == HOTKEY:
         triggered = True
+
 
 def on_release(key):
     global triggered
@@ -117,6 +131,7 @@ def on_release(key):
     print(f"🔊 Narrating ({len(text)} chars)...")
     _speaking.set()
     threading.Thread(target=speak, args=(text,), daemon=True).start()
+
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 

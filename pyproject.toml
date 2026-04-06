@@ -10,3 +10,37 @@ dependencies = [
     "sounddevice>=0.5.5",
     "soundfile>=0.13.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "httpx>=0.28",
+    "pre-commit>=4.2",
+    "ruff>=0.11",
+    "mypy>=1.15",
+    "types-requests>=2.32",
+    "fastapi>=0.115",
+    "pydantic>=2.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.14"
+warn_unused_ignores = true
+warn_return_any = true
+
+[[tool.mypy.overrides]]
+module = ["kokoro_onnx", "sounddevice", "soundfile", "mlx_audio.*", "uvicorn", "pynput.*"]
+ignore_missing_imports = true
