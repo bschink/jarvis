@@ -12,6 +12,8 @@ SCRIPTS=(
     jarvis_config.py
     jarvis_log.py
     jarvis-status.py
+    llm_client.py
+    jarvis-chat.py
     whisper-dictate.py
     kokoro-server.py
     tts-router.py

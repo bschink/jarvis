@@ -76,6 +76,21 @@ NARRATE_TTS_PYTHON = os.path.expanduser("~/.venv/tts-speak/bin/python")
 NARRATE_TTS_SCRIPT = os.path.expanduser("~/scripts/tts-router.py")
 NARRATE_COPY_DELAY = 0.15  # seconds to wait after Cmd+C before reading clipboard
 
+# ── LLM ───────────────────────────────────────────────────────────────────────
+
+LLM_HOST = "127.0.0.1"
+LLM_PORT = 11434
+LLM_MODEL = "qwen3:14b"
+LLM_BASE_URL = f"http://{LLM_HOST}:{LLM_PORT}"
+LLM_CONTEXT_LENGTH = 8192  # tokens — 8k is plenty for voice; model supports 32k
+LLM_TEMPERATURE = 0.7
+
+# ── Voice Loop ────────────────────────────────────────────────────────────────
+
+SILENCE_GAP_S = 1.8  # seconds of no whisper output before treating as end of utterance
+VOICE_TTS_PYTHON = os.path.expanduser("~/.venv/tts-speak/bin/python")
+VOICE_TTS_SCRIPT = os.path.expanduser("~/scripts/tts-router.py")
+
 # ── Heartbeat ─────────────────────────────────────────────────────────────────
 
 HEARTBEAT_INTERVAL_S = 30  # seconds between heartbeat file writes
