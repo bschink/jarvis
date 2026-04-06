@@ -86,6 +86,39 @@ class TestCleanWhisperLine:
         assert dictate_module.clean_whisper_line(raw) == ""
 
 
+class TestVadThreshold:
+    def test_vad_thold_arg_in_start_command(self, dictate_module):
+        """start_streaming must pass --vad-thold so the threshold is explicit."""
+        captured: list = []
+
+        class FakePopen:
+            def __init__(self, cmd, **kwargs):
+                captured.append(cmd)
+                self.stdout = iter([])
+                self.pid = 0
+
+            def terminate(self):
+                pass
+
+            def wait(self, timeout=None):
+                pass
+
+        import subprocess
+
+        with patch.object(subprocess, "Popen", FakePopen):
+            dictate_module.start_streaming()
+
+        assert captured, "Popen was never called"
+        cmd = captured[0]
+        assert "--vad-thold" in cmd, "--vad-thold must be passed to whisper-stream"
+        idx = cmd.index("--vad-thold")
+        val = float(cmd[idx + 1])
+        assert 0.0 < val < 1.0, "--vad-thold value must be in (0, 1)"
+
+        # Clean up the proc handle so other tests aren't affected
+        dictate_module.whisper_proc = None
+
+
 class TestIsHallucination:
     def test_known_hallucination_returns_true(self, dictate_module):
         assert dictate_module.is_hallucination("Thank you.") is True

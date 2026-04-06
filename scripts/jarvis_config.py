@@ -15,6 +15,9 @@ STT_LANGUAGE = "auto"  # "auto", "en", "de", etc.
 WHISPER_STREAM_STEP_MS = 2000  # process a new chunk every N ms
 WHISPER_STREAM_LENGTH_MS = 10000  # context window per chunk
 WHISPER_STREAM_KEEP_MS = 0  # overlap — 0 prevents non-deterministic duplicates
+WHISPER_STREAM_VAD_THRESHOLD = (
+    0.60  # voice activity detection threshold (0–1); raise to filter more noise
+)
 
 # ── TTS — Kokoro (fast path) ──────────────────────────────────────────────────
 

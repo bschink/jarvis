@@ -71,3 +71,7 @@ class TestConstants:
 
     def test_qwen3_sr_is_positive(self):
         assert jarvis_config.QWEN3_SR > 0
+
+    def test_vad_threshold_is_float_in_range(self):
+        assert isinstance(jarvis_config.WHISPER_STREAM_VAD_THRESHOLD, float)
+        assert 0.0 < jarvis_config.WHISPER_STREAM_VAD_THRESHOLD < 1.0

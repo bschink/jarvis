@@ -25,6 +25,7 @@ from jarvis_config import (
     WHISPER_STREAM_KEEP_MS,
     WHISPER_STREAM_LENGTH_MS,
     WHISPER_STREAM_STEP_MS,
+    WHISPER_STREAM_VAD_THRESHOLD,
 )
 
 # Toggle combo: Ctrl+F5. macOS intercepts bare F5 at the system level;
@@ -124,6 +125,8 @@ def start_streaming():
         str(WHISPER_STREAM_LENGTH_MS),
         "--keep",
         str(WHISPER_STREAM_KEEP_MS),
+        "--vad-thold",
+        str(WHISPER_STREAM_VAD_THRESHOLD),
     ]
     whisper_proc = subprocess.Popen(
         cmd,
