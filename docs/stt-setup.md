@@ -200,6 +200,14 @@ Expected behavior after full setup:
 4. Wait ~1–2 seconds
 5. Text appears at your cursor
 
+**JARVIS hotkey layout:**
+
+| Hotkey | Daemon | What it does |
+| --- | --- | --- |
+| `Ctrl+F5` | whisper-dictate | Push-to-talk dictation, types text at cursor |
+| `Ctrl+Shift+F5` | tts-narrate | Reads selected text aloud via Qwen3-TTS |
+| `Option+F5` | jarvis-voice | Voice conversation loop (speak, LLM, Kokoro TTS); press again to stop |
+
 ---
 
 ## Customisation

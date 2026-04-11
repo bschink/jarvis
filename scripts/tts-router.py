@@ -14,10 +14,11 @@ import io
 import os
 import sys
 
+import mlx.core as mx
+import numpy as np
 import requests
 import sounddevice as sd
 import soundfile as sf
-from mlx_audio.tts.audio_player import AudioPlayer
 from mlx_audio.tts.utils import load_model
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -91,13 +92,13 @@ def speak_kokoro(text: str) -> None:
 
 
 def speak_qwen3(text: str) -> None:
-    log(_SVC, "INFO", f"Qwen3-TTS: {len(text)} chars (streaming by paragraph)")
+    log(_SVC, "INFO", f"Qwen3-TTS: {len(text)} chars")
     try:
         model = _get_qwen3_model()
-        player = AudioPlayer(sample_rate=QWEN3_SR)
         kwargs = (
             {"instruct": QWEN3_INSTRUCT} if QWEN3_MODE == "voicedesign" else {"voice": QWEN3_VOICE}
         )
+        chunks = []
         for result in model.generate(
             text,
             temperature=QWEN3_TEMP,
@@ -107,8 +108,14 @@ def speak_qwen3(text: str) -> None:
             stream=True,
             **kwargs,
         ):
-            player.queue_audio(result.audio)
-        player.wait_for_drain()
+            mx.eval(result.audio)
+            chunks.append(np.array(result.audio, dtype=np.float32))
+        if chunks:
+            audio = np.concatenate(chunks)
+            dur = len(audio) / QWEN3_SR
+            log(_SVC, "INFO", f"Qwen3-TTS: playing {dur:.1f}s of audio")
+            sd.play(audio, samplerate=QWEN3_SR)
+            sd.wait()
         log(_SVC, "INFO", "Qwen3-TTS: done")
     except Exception as e:
         log(_SVC, "ERROR", f"Qwen3-TTS error: {e}")

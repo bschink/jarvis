@@ -14,6 +14,7 @@ SCRIPTS=(
     jarvis-status.py
     llm_client.py
     jarvis-chat.py
+    jarvis-voice.py
     whisper-dictate.py
     kokoro-server.py
     tts-router.py
@@ -33,6 +34,7 @@ PLISTS=(
     com.whisper.dictate
     com.kokoro.server
     com.tts.narrate
+    com.jarvis.voice
 )
 
 echo "\n📋 Updating LaunchAgents plists"
@@ -46,7 +48,7 @@ done
 # ── Restart running services ──────────────────────────────────────────────────
 
 # whisper-server is a binary managed by Homebrew — only restart if script-driven services changed.
-SERVICES=(com.whisper.dictate com.kokoro.server com.tts.narrate)
+SERVICES=(com.whisper.dictate com.kokoro.server com.tts.narrate com.jarvis.voice)
 
 echo "\n🔄 Restarting live services"
 for svc in "${SERVICES[@]}"; do

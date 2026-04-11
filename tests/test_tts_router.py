@@ -17,9 +17,10 @@ def router_module():
         "requests": MagicMock(),
         "sounddevice": MagicMock(),
         "soundfile": MagicMock(),
+        "mlx": MagicMock(),
+        "mlx.core": MagicMock(),
         "mlx_audio": MagicMock(),
         "mlx_audio.tts": MagicMock(),
-        "mlx_audio.tts.audio_player": MagicMock(),
         "mlx_audio.tts.utils": MagicMock(),
     }
     with patch.dict(sys.modules, stubs):
