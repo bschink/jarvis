@@ -21,6 +21,7 @@ import os
 import re
 import sys
 import threading
+import time
 from collections import deque
 from collections.abc import Generator
 from pathlib import Path
@@ -89,8 +90,8 @@ class LLMClient:
                 data = json.loads(_FACTS_PATH.read_text())
                 if isinstance(data, dict):
                     return {str(k): str(v) for k, v in data.items()}
-            except json.JSONDecodeError, OSError:
-                pass
+            except (json.JSONDecodeError, OSError) as e:
+                log(_SVC, "WARN", f"failed to load facts: {e}")
         return {}
 
     def save_facts(self) -> None:
@@ -142,8 +143,8 @@ class LLMClient:
             )
             with self._summary_lock:
                 self._summary = resp.json().get("response", self._summary).strip()
-        except Exception:
-            pass  # summary loss is non-fatal
+        except Exception as e:
+            log(_SVC, "WARN", f"summary generation failed (non-fatal): {e}")
 
     def _record_turn(self, user_text: str, assistant_text: str) -> None:
         if len(self._recent) == self._recent.maxlen:
@@ -159,8 +160,14 @@ class LLMClient:
 
     # ── Core API ──────────────────────────────────────────────────────────────
 
+    _MAX_RETRIES = 2
+    _RETRY_DELAY_S = 1.0
+
     def stream(self, user_text: str) -> Generator[str]:
-        """Yield token strings as they arrive. Records the completed turn on finish."""
+        """Yield token strings as they arrive. Records the completed turn on finish.
+
+        Retries up to _MAX_RETRIES times on ConnectionError (Ollama may be restarting).
+        """
         messages = self._build_messages(user_text)
         payload = {
             "model": self.model,
@@ -173,29 +180,43 @@ class LLMClient:
             },
         }
         full: list[str] = []
-        try:
-            with self._session.post(
-                f"{self.base_url}/api/chat",
-                json=payload,
-                stream=True,
-                timeout=60,
-            ) as resp:
-                resp.raise_for_status()
-                for line in resp.iter_lines():
-                    if not line:
-                        continue
-                    data = json.loads(line)
-                    token = data.get("message", {}).get("content", "")
-                    if token:
-                        full.append(token)
-                        yield token
-                    if data.get("done"):
-                        break
-        except requests.exceptions.ConnectionError:
+        last_err: Exception | None = None
+        for attempt in range(1 + self._MAX_RETRIES):
+            try:
+                with self._session.post(
+                    f"{self.base_url}/api/chat",
+                    json=payload,
+                    stream=True,
+                    timeout=60,
+                ) as resp:
+                    resp.raise_for_status()
+                    for line in resp.iter_lines():
+                        if not line:
+                            continue
+                        data = json.loads(line)
+                        token = data.get("message", {}).get("content", "")
+                        if token:
+                            full.append(token)
+                            yield token
+                        if data.get("done"):
+                            break
+                last_err = None
+                break  # success
+            except requests.exceptions.ConnectionError as e:
+                last_err = e
+                if attempt < self._MAX_RETRIES:
+                    log(
+                        _SVC,
+                        "WARN",
+                        f"Ollama connection failed (attempt {attempt + 1}), retrying...",
+                    )
+                    time.sleep(self._RETRY_DELAY_S)
+                    continue
+            except Exception as e:
+                log(_SVC, "ERROR", f"stream error: {e}")
+                return
+        if last_err is not None:
             log(_SVC, "ERROR", f"cannot reach Ollama on {self.base_url} — is it running?")
-            return
-        except Exception as e:
-            log(_SVC, "ERROR", f"stream error: {e}")
             return
         self._record_turn(user_text, "".join(full))
 

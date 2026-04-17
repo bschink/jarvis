@@ -7,7 +7,7 @@ Transcription is typed progressively into whatever app is currently focused.
 
 import os
 import queue
-import re
+import signal
 import subprocess
 import sys
 import threading
@@ -28,7 +28,7 @@ from jarvis_config import (
 from jarvis_config import (
     STT_MODEL_PATH as MODEL_PATH,
 )
-from jarvis_log import log
+from jarvis_log import clean_whisper_line, is_hallucination, log
 
 _SVC = "whisper-dictate"
 
@@ -60,48 +60,15 @@ _type_queue: queue.Queue = queue.Queue()  # decouples stdout reader from osascri
 
 # ── Streaming ─────────────────────────────────────────────────────────────────
 
-_TIMESTAMP_RE = re.compile(r"\[[\d:.]+ --> [\d:.]+\]\s*")
-_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
-# Common whisper hallucinations during silence — language-agnostic short phrases
-_HALLUCINATIONS = {
-    "Thank you.",
-    "Thank you!",
-    "Thanks for watching.",
-    "Thanks for watching!",
-    "Thank you for watching.",
-    "Thank you so much.",
-    "Please subscribe.",
-    "Okay.",
-    "Okay!",
-    "OK.",
-    "Amen.",
-    "Bye.",
-    "Bye!",
-    "...",
-    ". . .",
-    ".",
-}
-
-
-def clean_whisper_line(raw: str) -> str:
-    """Strip ANSI codes, carriage-return rewrites, and timestamp prefixes. Pure function."""
-    line = _ANSI_RE.sub("", raw)
-    line = line.split("\r")[-1]
-    return _TIMESTAMP_RE.sub("", line).strip()
-
-
-def is_hallucination(text: str) -> bool:
-    """Return True if text is a known Whisper hallucination or noise fragment. Pure function."""
-    return text in _HALLUCINATIONS or len(text) <= 2
-
-
-def _typer_worker():
+def _typer_worker() -> None:
     """Drain _type_queue and call type_text sequentially in a dedicated thread.
 
     Keeping typing out of _read_stdout means the stdout pipe is always drained
     promptly — osascript latency (~50–200 ms per call) can no longer back up the
     64 KB kernel pipe buffer and stall whisper-stream mid-session.
+    if proc.stdout is None:
+        return
     """
     while True:
         text = _type_queue.get()
@@ -110,8 +77,9 @@ def _typer_worker():
         type_text(text)
 
 
-def _read_stdout(proc):
+def _read_stdout(proc: subprocess.Popen[bytes]) -> None:
     first_chunk = True
+    assert proc.stdout is not None
 
     for raw in proc.stdout:
         text = clean_whisper_line(raw.decode("utf-8", errors="replace"))
@@ -129,7 +97,7 @@ def _read_stdout(proc):
         _type_queue.put(out)  # hand off; don't block the reader
 
 
-def start_streaming():
+def start_streaming() -> None:
     global whisper_proc, reader_thread
     cmd = [
         "/opt/homebrew/bin/whisper-stream",
@@ -158,7 +126,7 @@ def start_streaming():
     log(_SVC, "INFO", "streaming started")
 
 
-def stop_streaming():
+def stop_streaming() -> None:
     global whisper_proc, reader_thread
     if whisper_proc is not None:
         whisper_proc.terminate()
@@ -175,25 +143,30 @@ def stop_streaming():
 # ── Typing ────────────────────────────────────────────────────────────────────
 
 
-def type_text(text):
-    """Type text into the currently focused app via osascript."""
-    escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+def type_text(text: str) -> None:
+    """Type text into the currently focused app via osascript.
+
+    Uses 'keystroke' which types character-by-character, so the text is safely
+    embedded in an AppleScript double-quoted string with proper escaping.
+    """
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
     subprocess.run(
-        ["osascript", "-e", f'tell application "System Events" to keystroke "{escaped}"']
+        ["osascript", "-e", f'tell application "System Events" to keystroke "{escaped}"'],
+        timeout=5,
     )
 
 
 # ── Hotkey Listener ───────────────────────────────────────────────────────────
 
 
-def on_press(key):
+def on_press(key: keyboard.Key) -> None:
     global triggered
     current_keys.add(key)
     if current_keys == HOTKEY and not triggered:
         triggered = True
 
 
-def on_release(key):
+def on_release(key: keyboard.Key) -> None:
     global triggered
     current_keys.discard(key)
     if not triggered:
@@ -209,6 +182,15 @@ def on_release(key):
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
+
+def _sigterm_handler(signum: int, frame: object) -> None:
+    log(_SVC, "INFO", "SIGTERM received — shutting down")
+    stop_streaming()
+    raise SystemExit(0)
+
+
+signal.signal(signal.SIGTERM, _sigterm_handler)
 
 log(_SVC, "INFO", "ready — press Ctrl+F5 to start streaming")
 

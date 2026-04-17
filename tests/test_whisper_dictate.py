@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from jarvis_log import _ANSI_RE, _TIMESTAMP_RE, HALLUCINATIONS
 
 SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
 
@@ -31,39 +32,39 @@ def dictate_module():
 class TestTimestampRegex:
     def test_strips_standard_timestamp(self, dictate_module):
         raw = "[00:01.500 --> 00:03.200]  Hello world"
-        result = dictate_module._TIMESTAMP_RE.sub("", raw).strip()
+        result = _TIMESTAMP_RE.sub("", raw).strip()
         assert result == "Hello world"
 
     def test_strips_zero_padded_timestamp(self, dictate_module):
         raw = "[00:00.000 --> 00:00.000]   "
-        result = dictate_module._TIMESTAMP_RE.sub("", raw).strip()
+        result = _TIMESTAMP_RE.sub("", raw).strip()
         assert result == ""
 
     def test_no_match_on_plain_text(self, dictate_module):
         text = "Just plain text"
-        assert dictate_module._TIMESTAMP_RE.sub("", text) == text
+        assert _TIMESTAMP_RE.sub("", text) == text
 
 
 class TestAnsiRegex:
     def test_strips_color_code(self, dictate_module):
         raw = "\x1b[32mGreen text\x1b[0m"
-        assert dictate_module._ANSI_RE.sub("", raw) == "Green text"
+        assert _ANSI_RE.sub("", raw) == "Green text"
 
     def test_strips_multiple_codes(self, dictate_module):
         raw = "\x1b[1m\x1b[31mBold red\x1b[0m"
-        assert dictate_module._ANSI_RE.sub("", raw) == "Bold red"
+        assert _ANSI_RE.sub("", raw) == "Bold red"
 
     def test_no_match_on_clean_text(self, dictate_module):
-        assert dictate_module._ANSI_RE.sub("", "clean") == "clean"
+        assert _ANSI_RE.sub("", "clean") == "clean"
 
 
 class TestHallucinations:
     def test_known_phrases_present(self, dictate_module):
         for phrase in ("Thank you.", "Okay.", "...", "Bye.", "."):
-            assert phrase in dictate_module._HALLUCINATIONS
+            assert phrase in HALLUCINATIONS
 
     def test_normal_sentence_absent(self, dictate_module):
-        assert "The meeting is at three." not in dictate_module._HALLUCINATIONS
+        assert "The meeting is at three." not in HALLUCINATIONS
 
 
 class TestCleanWhisperLine:

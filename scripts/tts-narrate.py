@@ -117,14 +117,14 @@ def _hotkey_complete(current_keys: set, hotkey: set) -> bool:
     return current_keys == hotkey
 
 
-def on_press(key):
+def on_press(key: keyboard.Key) -> None:
     global triggered
     current_keys.add(key)
     if current_keys == HOTKEY:
         triggered = True
 
 
-def on_release(key):
+def on_release(key: keyboard.Key) -> None:
     global triggered
     current_keys.discard(key)
     if not triggered:
@@ -147,12 +147,26 @@ def on_release(key):
         log(_SVC, "WARN", "hotkey pressed but no text selected")
         return
 
+    max_chars = 100_000
+    if len(text) > max_chars:
+        log(_SVC, "WARN", f"clipboard too large ({len(text)} chars), truncating to {max_chars}")
+        text = text[:max_chars]
+
     log(_SVC, "INFO", f"narrating {len(text)} chars")
     _speaking.set()
     threading.Thread(target=speak, args=(text,), daemon=True).start()
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
+
+def _sigterm_handler(signum: int, frame: object) -> None:
+    log(_SVC, "INFO", "SIGTERM received — shutting down")
+    stop_speaking()
+    raise SystemExit(0)
+
+
+signal.signal(signal.SIGTERM, _sigterm_handler)
 
 log(_SVC, "INFO", "ready — select text and press Ctrl+Shift+F5")
 

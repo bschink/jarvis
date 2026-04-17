@@ -18,7 +18,6 @@ being fed back into the microphone.
 
 import contextlib
 import os
-import re
 import signal
 import subprocess
 import sys
@@ -41,45 +40,11 @@ from jarvis_config import (
     WHISPER_STREAM_STEP_MS,
     WHISPER_STREAM_VAD_THRESHOLD,
 )
-from jarvis_log import log
+from jarvis_log import clean_whisper_line, is_hallucination, log
 from llm_client import LLMClient
 
 _SVC = "jarvis-voice"
 HOTKEY = {keyboard.Key.alt, keyboard.Key.f5}
-
-# ── Hallucination filter (mirrors whisper-dictate.py) ─────────────────────────
-
-_TIMESTAMP_RE = re.compile(r"\[[\d:.]+ --> [\d:.]+\]\s*")
-_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
-_HALLUCINATIONS = {
-    "Thank you.",
-    "Thank you!",
-    "Thanks for watching.",
-    "Thanks for watching!",
-    "Thank you for watching.",
-    "Thank you so much.",
-    "Please subscribe.",
-    "Okay.",
-    "Okay!",
-    "OK.",
-    "Amen.",
-    "Bye.",
-    "Bye!",
-    "...",
-    ". . .",
-    ".",
-}
-
-
-def clean_whisper_line(raw: str) -> str:
-    line = _ANSI_RE.sub("", raw)
-    line = line.split("\r")[-1]
-    return _TIMESTAMP_RE.sub("", line).strip()
-
-
-def is_hallucination(text: str) -> bool:
-    return text in _HALLUCINATIONS or len(text) <= 2
-
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
@@ -88,6 +53,7 @@ _cancelled = threading.Event()  # set on barge-in; cleared when new LLM response
 _whisper_proc: subprocess.Popen | None = None
 _tts_proc: subprocess.Popen | None = None
 _utterance_buffer: list[str] = []
+_buffer_lock = threading.Lock()
 _silence_timer: threading.Timer | None = None
 _current_keys: set = set()
 _triggered = False
@@ -131,8 +97,9 @@ def _llm_and_speak(utterance: str) -> None:
 
 def _on_utterance_complete() -> None:
     """Called by silence timer when no new whisper output for SILENCE_GAP_S seconds."""
-    utterance = " ".join(_utterance_buffer).strip()
-    _utterance_buffer.clear()
+    with _buffer_lock:
+        utterance = " ".join(_utterance_buffer).strip()
+        _utterance_buffer.clear()
     if not utterance:
         return
     log(_SVC, "INFO", f"utterance: '{utterance}'")
@@ -159,7 +126,8 @@ def _read_stdout(proc: subprocess.Popen) -> None:
             log(_SVC, "DEBUG", f"filtered: '{text}'")
             continue
         log(_SVC, "INFO", f"heard: '{text}'")
-        _utterance_buffer.append(text)
+        with _buffer_lock:
+            _utterance_buffer.append(text)
         _reset_silence_timer()
 
 
@@ -207,7 +175,8 @@ def stop_all() -> None:
         with contextlib.suppress(ProcessLookupError, OSError):
             os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
     _tts_active.clear()
-    _utterance_buffer.clear()
+    with _buffer_lock:
+        _utterance_buffer.clear()
     log(_SVC, "INFO", "stopped")
 
 
@@ -249,6 +218,15 @@ def _heartbeat_writer() -> None:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
+
+def _sigterm_handler(signum: int, frame: object) -> None:
+    log(_SVC, "INFO", "SIGTERM received — shutting down")
+    stop_all()
+    raise SystemExit(0)
+
+
+signal.signal(signal.SIGTERM, _sigterm_handler)
 
 threading.Thread(target=_heartbeat_writer, daemon=True).start()
 
