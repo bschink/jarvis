@@ -9,13 +9,16 @@ dependencies = [
     "requests>=2.33.1",
     "sounddevice>=0.5.5",
     "soundfile>=0.13.1",
+    # menubar app
+    "rumps>=0.4.0",
+    "httpx>=0.27.0",
+    "psutil>=6.0.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
-    "httpx>=0.28",
     "pre-commit>=4.2",
     "ruff>=0.11",
     "mypy>=1.20",
@@ -42,5 +45,5 @@ warn_unused_ignores = true
 warn_return_any = true
 
 [[tool.mypy.overrides]]
-module = ["kokoro_onnx", "sounddevice", "soundfile", "mlx_audio.*", "uvicorn", "pynput.*"]
+module = ["kokoro_onnx", "sounddevice", "soundfile", "mlx_audio.*", "uvicorn", "pynput.*", "rumps"]
 ignore_missing_imports = true

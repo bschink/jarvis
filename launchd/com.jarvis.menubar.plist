@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.jarvis.menubar</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>JARVIS_VENV_PYTHON</string>
+    <string>JARVIS_MENUBAR_SCRIPT</string>
+  </array>
+  <!-- WorkingDirectory set to menubar/ so sibling-module imports resolve. -->
+  <key>WorkingDirectory</key>
+  <string>JARVIS_MENUBAR_DIR</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/jarvis-menubar.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/jarvis-menubar.err</string>
+</dict>
+</plist>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.openwebui</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/YOURUSERNAME/.local/bin/open-webui</string>
+    <string>serve</string>
+    <string>--port</string>
+    <string>3000</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OLLAMA_BASE_URL</key>
+    <string>http://127.0.0.1:11434</string>
+    <key>WEBUI_SECRET_KEY</key>
+    <string>WEBUI_SECRET_KEY_VALUE</string>
+    <key>WEBUI_AUTH</key>
+    <string>false</string>
+    <key>DATA_DIR</key>
+    <string>/Users/YOURUSERNAME/.local/share/open-webui</string>
+    <key>HOME</key>
+    <string>/Users/YOURUSERNAME</string>
+  </dict>
+  <!-- RunAtLoad false: the menu bar app controls when Open WebUI starts. -->
+  <key>RunAtLoad</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/tmp/openwebui.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/openwebui.err</string>
+</dict>
+</plist>

@@ -7,11 +7,19 @@ Personal AI assistant running 100% local on an M5 Pro MacBook. No cloud, no API 
 | Layer | Tech | Status |
 | --- | --- | --- |
 | STT | whisper.cpp large-v3-turbo + Core ML | ✅ Done |
-| LLM | Qwen3 14B Q4_K_M via Ollama | 🔲 Planned |
+| LLM | Qwen3 14B Q4_K_M via Ollama | ✅ Done |
 | TTS (fast) | Kokoro-ONNX | ✅ Done |
 | TTS (quality) | Qwen3-TTS 1.7B via mlx-audio | ✅ Done |
 | TTS routing + narrate | tts-router.py + tts-narrate.py | ✅ Done |
 | Orchestration | MCP + Claude Desktop | 🔲 Planned |
+
+## Hotkeys
+
+| Hotkey | Action |
+| --- | --- |
+| `Ctrl+F5` | Push-to-talk dictation — press to start recording, press again to stop and transcribe |
+| `Ctrl+Shift+F5` | Narrate selection — reads whatever text is selected in any app via TTS |
+| `Option+F5` | Voice conversation loop — speak to JARVIS, press again while it's speaking to barge in |
 
 ## Ports
 
