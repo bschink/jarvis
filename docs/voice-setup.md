@@ -1,7 +1,7 @@
 # Voice Conversation Loop Setup
 
 Wires all three layers together: Option+F5 starts listening via whisper-stream, speech is
-transcribed and sent to Qwen3 14B, and JARVIS responds sentence-by-sentence via Kokoro TTS.
+transcribed and sent to Qwen3.5 9B, and JARVIS responds sentence-by-sentence via Kokoro TTS.
 Press Option+F5 again at any point — while listening or while JARVIS is speaking — to stop everything.
 
 ---
@@ -165,7 +165,7 @@ launchctl kickstart -k "gui/$(id -u)/com.jarvis.voice"
 | `[Errno 13] Permission denied` on mic | Microphone permission missing | Re-add binary in System Settings → Microphone |
 | Hotkey does nothing | Accessibility permission missing | Re-add binary in System Settings → Accessibility |
 | JARVIS responds but you hear nothing | TTS not running | Check `launchctl list \| grep kokoro`; see `docs/tts-setup.md` |
-| Responses contain markdown/bullet points | LLM ignoring system prompt | Ensure Ollama model is `qwen3:14b-q4_K_M`, not a fine-tune |
+| Responses contain markdown/bullet points | LLM ignoring system prompt | Ensure Ollama model is `qwen3.5:9b`, not a fine-tune |
 | Echo feedback loop | Echo gate not firing | Check log for `filtered:` lines during TTS playback |
 
 ---

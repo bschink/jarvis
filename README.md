@@ -1,7 +1,7 @@
 # JARVIS
 
 A voice-first AI assistant that runs entirely on a MacBook Pro M5 Pro (24 GB).
-Speech-to-text, a 14B language model, and two text-to-speech engines all run locally —
+Speech-to-text, a 9B language model, and two text-to-speech engines all run locally —
 no cloud services, no API keys, nothing leaves the machine.
 
 You talk to it with a hotkey, it thinks with Qwen3, and it answers out loud through Kokoro.
@@ -12,7 +12,7 @@ A macOS menu bar app manages the five backing services and shows live health / m
 | Layer | Tech | Notes |
 | --- | --- | --- |
 | STT | whisper.cpp large-v3-turbo + Core ML | ~6× faster than large-v3 on Apple Silicon |
-| LLM | Qwen3 14B Q4_K_M via Ollama | 8k context, streaming sentence output |
+| LLM | Qwen3.5 9B Q4_K_M via Ollama | 128k context, streaming sentence output |
 | TTS (fast) | Kokoro-ONNX on port 8880 | Real-time, used for conversation |
 | TTS (quality) | Qwen3-TTS 1.7B via mlx-audio | Slower, used for long-form "read this" |
 | TTS routing | tts-router.py | < 200 chars → Kokoro, ≥ 200 chars → Qwen3-TTS |

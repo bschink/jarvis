@@ -80,9 +80,9 @@ NARRATE_COPY_DELAY = 0.15  # seconds to wait after Cmd+C before reading clipboar
 
 LLM_HOST = "127.0.0.1"
 LLM_PORT = 11434
-LLM_MODEL = "qwen3:14b"
+LLM_MODEL = "qwen3.5:9b"
 LLM_BASE_URL = f"http://{LLM_HOST}:{LLM_PORT}"
-LLM_CONTEXT_LENGTH = 8192  # tokens — 8k is plenty for voice; model supports 32k
+LLM_CONTEXT_LENGTH = 32768  # tokens — 32k practical limit; model supports 128k
 LLM_TEMPERATURE = 0.7
 
 # ── Voice Loop ────────────────────────────────────────────────────────────────

@@ -35,19 +35,19 @@ def test_format_ollama_line_empty():
 
 
 def test_format_ollama_line_single():
-    models = [{"name": "qwen3:14b", "size_mb": 8704.0}]  # ~8.5 GB
+    models = [{"name": "qwen3.5:9b", "size_mb": 8704.0}]  # ~8.5 GB
     result = mem.format_ollama_line(models)
-    assert "qwen3:14b" in result
+    assert "qwen3.5:9b" in result
     assert "8.5 GB" in result
 
 
 def test_format_ollama_line_multiple():
     models = [
-        {"name": "qwen3:14b", "size_mb": 8192.0},
+        {"name": "qwen3.5:9b", "size_mb": 8192.0},
         {"name": "qwen3:0.6b", "size_mb": 512.0},
     ]
     result = mem.format_ollama_line(models)
-    assert "qwen3:14b" in result
+    assert "qwen3.5:9b" in result
     assert "qwen3:0.6b" in result
 
 
@@ -64,7 +64,7 @@ def _mock_response(data: dict, status_code: int = 200) -> MagicMock:
 def test_get_ollama_loaded_models_success():
     payload = {
         "models": [
-            {"name": "qwen3:14b", "size_vram": 9_000_000_000, "size": 10_000_000_000},
+            {"name": "qwen3.5:9b", "size_vram": 9_000_000_000, "size": 10_000_000_000},
         ]
     }
     with patch("httpx.Client") as mock_client_cls:
@@ -75,7 +75,7 @@ def test_get_ollama_loaded_models_success():
         result = mem.get_ollama_loaded_models()
 
     assert len(result) == 1
-    assert result[0]["name"] == "qwen3:14b"
+    assert result[0]["name"] == "qwen3.5:9b"
     # size_vram preferred
     assert abs(result[0]["size_mb"] - 9_000_000_000 / 1_048_576) < 1
 

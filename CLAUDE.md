@@ -4,7 +4,7 @@
 
 Personal AI assistant system for Bene, running entirely local, open source, and free on a MacBook Pro M5 Pro (14", 24GB RAM). Inspired by Iron Man's JARVIS/EDITH. No cloud dependencies, no ongoing costs, full data privacy.
 
-**Stack:** whisper.cpp (STT) → Qwen3 14B via Ollama (LLM) → Kokoro-ONNX / Qwen3-TTS (TTS) → MCP + Claude Desktop (orchestration)
+**Stack:** whisper.cpp (STT) → Qwen3.5 9B via Ollama (LLM) → Kokoro-ONNX / Qwen3-TTS (TTS) → MCP + Claude Desktop (orchestration)
 
 ## Core Principles
 
@@ -151,7 +151,7 @@ These are hard constraints, not preferences. Never suggest patterns that violate
 ## Key Technology Decisions (don't relitigate without good reason)
 
 - **STT:** whisper.cpp large-v3-turbo + Core ML encoder (not large-v3 — 6× faster, negligible accuracy loss on clean mic audio)
-- **LLM:** Qwen3 14B Q4_K_M via Ollama (not MLX-LM — ecosystem integration wins over 20–30% speed gain for now)
+- **LLM:** Qwen3.5 9B Q4_K_M via Ollama (not MLX-LM — ecosystem integration wins over 20–30% speed gain for now)
 - **TTS fast:** Kokoro-ONNX on `127.0.0.1:8880` (real-time, conversational)
 - **TTS quality:** Qwen3-TTS 1.7B via mlx-audio (not real-time, batch/reading use)
 - **TTS routing:** < ~200 chars or voice loop → Kokoro; > ~200 chars or "read this" → Qwen3-TTS

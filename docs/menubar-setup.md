@@ -54,7 +54,7 @@ uv run python menubar/app.py
 ├── ○ Open WebUI
 ├── ─────────────────────────────
 ├── Memory: 9.1 GB / 24 GB used
-├── Ollama: qwen3:14b (8.5 GB)
+├── Ollama: qwen3.5:9b (6.6 GB)
 ├── ─────────────────────────────
 ├── Quick Chat…
 ├── Open Dashboard
@@ -85,7 +85,7 @@ Edit `~/.jarvis/menubar_config.json` (created with defaults on first run):
   "inactivity_timeout_minutes": 30,
   "health_check_interval_seconds": 10,
   "memory_warning_threshold_gb": 20,
-  "chat_model": "qwen3:14b",
+  "chat_model": "qwen3.5:9b",
   "ollama_keep_alive": "10m"
 }
 ```

@@ -5,12 +5,12 @@ Entry point: run with `.venv/bin/python app.py` from the menubar/ directory,
 or via the launchd agent installed by setup.sh.
 
 Architecture:
-  - @rumps.timer(10)  → _health_tick: offloads health checks to a background
-    thread every 10 s (interval from config), then updates menu items.
+  - @rumps.timer(10)  → _health_tick: runs health checks on the main thread
+    every 10 s and updates menu items.
   - @rumps.timer(300) → _inactivity_tick: checks idle timers every 5 minutes.
   - All shared state (_loaded, _health) is protected with a threading.Lock.
-  - Menu item titles are updated from background threads; this is the standard
-    rumps pattern and works reliably in practice.
+  - UI writes always happen on the main thread (rumps timer callbacks).
+    Background threads (toggle, quick-chat) use AppHelper.callAfter for UI.
 """
 
 from __future__ import annotations
@@ -124,7 +124,7 @@ DEFAULT_CONFIG: dict = {
     "inactivity_timeout_minutes": 30,
     "health_check_interval_seconds": 10,
     "memory_warning_threshold_gb": 20,
-    "chat_model": "qwen3:14b",
+    "chat_model": "qwen3.5:9b",
     "ollama_keep_alive": "10m",
 }
 
@@ -178,8 +178,9 @@ class JarvisApp(rumps.App):
 
         self._build_menu()
 
-        # Run an initial health refresh immediately so the menu shows real state.
-        threading.Thread(target=self._do_health_refresh, daemon=True).start()
+        # Run an initial health refresh via a one-shot timer so the app finishes
+        # initialising on the main thread before any UI writes happen.
+        rumps.Timer(self._initial_refresh, 0.1).start()
 
     # ── Menu construction ─────────────────────────────────────────────────────
 
@@ -242,11 +243,15 @@ class JarvisApp(rumps.App):
         self._refresh_one(service)
         AppHelper.callAfter(self._update_icon)
 
+    def _initial_refresh(self, sender) -> None:
+        sender.stop()
+        self._do_health_refresh()
+
     # ── Health timer (every 10 s) ─────────────────────────────────────────────
 
     @rumps.timer(10)
     def _health_tick(self, _sender) -> None:
-        threading.Thread(target=self._do_health_refresh, daemon=True).start()
+        self._do_health_refresh()
 
     def _do_health_refresh(self) -> None:
         """Check all services, update state, and refresh menu labels."""
@@ -285,7 +290,7 @@ class JarvisApp(rumps.App):
 
     @rumps.timer(300)
     def _inactivity_tick(self, _sender) -> None:
-        threading.Thread(target=self._do_inactivity_check, daemon=True).start()
+        self._do_inactivity_check()
 
     def _do_inactivity_check(self) -> None:
         for plist_label, watcher in self._watchers.items():
